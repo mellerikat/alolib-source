@@ -1,4 +1,4 @@
-# alolib-source
+# alolib-dev
 
 
 
@@ -15,14 +15,14 @@ Already a pro? Just edit this README.md and make it your own. Want to make it ea
 
 ```
 cd existing_repo
-git remote add origin http://mod.lge.com/hub/dxadvtech/aicontents-framework/alolib-source.git
+git remote add origin http://mod.lge.com/hub/dxadvtech/alolib-dev.git
 git branch -M main
 git push -uf origin main
 ```
 
 ## Integrate with your tools
 
-- [ ] [Set up project integrations](http://mod.lge.com/hub/dxadvtech/aicontents-framework/alolib-source/-/settings/integrations)
+- [ ] [Set up project integrations](http://mod.lge.com/hub/dxadvtech/alolib-dev/-/settings/integrations)
 
 ## Collaborate with your team
 
