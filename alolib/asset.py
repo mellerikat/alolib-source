@@ -194,7 +194,7 @@ class Asset:
         # fetch_data 할 때는 항상 input 폴더 비우고 시작한다 
         if os.path.exists(self.input_data_home):
             for file in os.scandir(self.input_data_home):
-                print_color(f">> Start removing pre-existing input data before fetching external data: {file}", "blue")
+                print_color(f">> Start removing pre-existing input data before fetching external data: {file}", "yellow")
                 shutil.rmtree(file.path)
      
             
@@ -347,11 +347,18 @@ class Asset:
         # yaml 수동작성과 requirements.txt 간, 혹은 서로다른 asset 간에 같은 패키지인데 version이 다른 중복일 경우 아래 우선순위에 따라 한번만 설치하도록 지정         
         # 우선순위 : 1. ALO master 종속 패키지 / 2. 이번 파이프라인의 먼저 오는 step (ex. input asset) / 3. 같은 step이라면 requirements.txt보다는 yaml에 직접 작성한 패키지 우선 
         # 위 우선순위는 이미 main.py에서 requirements_dict 만들 때 부터 반영돼 있음 
-        dup_checked_requirements_dict = defaultdict(list)
+        dup_checked_requirements_dict = defaultdict(list) # --force-reinstall 인자 붙은 건 중복 패키지여도 별도로 마지막에 재설치 
         dup_chk_set = set() 
+        force_reinstall_list = [] 
         for step_name, requirements_list in extracted_requirements_dict.items(): 
             for pkg in requirements_list: 
                 pkg_name = pkg.replace(" ", "") # 모든 공백 제거후, 비교 연산자, version 말고 패키지의 base name를 아래 조건문에서 구할 것임
+                # force reinstall은 별도 저장 
+                if "--force-reinstall" in pkg_name: 
+                    force_reinstall_list.append(pkg) # force reinstall 은 numpy==1.25.2--force-reinstall 처럼 붙여서 쓰면 인식못하므로 pkg_name이 아닌 pkg로 기입 
+                    dup_chk_set.add(pkg)
+                    continue 
+                # 버전 및 주석 등을 제외한, 패키지의 base 이름 추출 
                 base_pkg_name = "" 
                 if pkg_name.startswith("#") or pkg_name == "": # requirements.txt에도 주석 작성했거나 빈 줄을 첨가한 경우는 패스 
                     continue 
@@ -366,54 +373,78 @@ class Asset:
                 else: # version 명시 안한 케이스 
                     base_pkg_name = pkg_name  
                     
+                # package명 위가 아니라 옆 쪽에 주석 달은 경우, 제거  
+                if '#' in base_pkg_name: 
+                    base_pkg_name = base_pkg_name[ : base_pkg_name.index('#')]
+                if '#' in pkg_name: 
+                    pkg_name = pkg_name[ : pkg_name.index('#')]
+                                    
                 # ALO master 및 모든 asset들의 종속 패키지를 취합했을 때 버전 다른 중복 패키지 존재 시 먼저 진행되는 step(=asset)의 종속 패키지만 설치  
                 if base_pkg_name in dup_chk_set: 
-                    print_color(f'Ignored installing << {pkg_name} >>. Another version will be installed in the previous step.', 'red')
+                    print_color(f'>> Ignored installing << {pkg_name} >>. Another version will be installed in the previous step.', 'yellow')
                 else: 
                     dup_chk_set.add(base_pkg_name)
                     dup_checked_requirements_dict[step_name].append(pkg_name)
-                    
-        ####################
+        
+        # force reinstall은 마지막에 한번 다시 설치 하기 위해 추가 
+        dup_checked_requirements_dict['force-reinstall'] = force_reinstall_list
+        
+        # 패키지 설치 
+        self._install_packages(dup_checked_requirements_dict, dup_chk_set)
+
+        return     
+    
+    def _install_packages(self, dup_checked_requirements_dict, dup_chk_set): 
         total_num_install = len(dup_chk_set)
         count = 1
         # 사용자 환경에 priority_sorted_pkg_list의 각 패키지 존재 여부 체크 및 없으면 설치
-        for step_name, package_list in dup_checked_requirements_dict.items(): 
-            print_color(f"======================================== Start dependency installation - step : << {step_name} >> ========================================", 'green')
+        for step_name, package_list in dup_checked_requirements_dict.items(): # 마지막 step_name 은 force-reinstall 
+            print_color(f"======================================== Start dependency installation : << {step_name} >> ========================================", 'green')
             for package in package_list:
                 print_color(f'>> Start checking existence & installing package - {package} | Progress: ( {count} / {total_num_install} total packages )', 'yellow')
                 count += 1
-                try: 
+                
+                if "--force-reinstall" in package: 
+                    try: 
+                        print_color(f'- Start installing package - {package}', 'yellow')
+                        subprocess.check_call([sys.executable, '-m', 'pip', 'install', package.replace('--force-reinstall', '').strip(), '--force-reinstall'])            
+                    except OSError as e:
+                        self._asset_error(f"Error occurs while --force-reinstalling {package} ~ " + e)  
+                    continue 
+                        
+                try: # 이미 같은 버전 설치 돼 있는지 
                     # [pkg_resources 관련 참고] https://stackoverflow.com/questions/44210656/how-to-check-if-a-module-is-installed-in-python-and-if-not-install-it-within-t 
                     # 가령 aiplib @ git+http://mod.lge.com/hub/smartdata/aiplatform/module/aip.lib.git@ver2  같은 version 표기가 requirements.txt에 존재해도 conflict 안나는 것 확인 완료 
                     # [FIXME] 사용자가 가령 pandas 처럼 (==version 없이) 작성하여도 아래 코드는 통과함 
                     pkg_resources.get_distribution(package) # get_distribution tact-time 테스트: 약 0.001s
-                    print_color(f'- << {package} >> already exists', 'blue')
+                    print_color(f'- << {package} >> already exists', 'green')
                 except pkg_resources.DistributionNotFound: # 사용자 가상환경에 해당 package 설치가 아예 안 돼있는 경우 
                     try: # nested try/except 
-                        print_color(f'- Start installing package - {package}', 'green')
+                        print_color(f'- Start installing package - {package}', 'yellow')
                         subprocess.check_call([sys.executable, '-m', 'pip', 'install', package])
-                    except OSError as e: 
+                    except OSError as e:
                         # 가령 asset을 만든 사람은 abc.txt라는 파일 기반으로 pip install -r abc.txt 하고 싶었는데, 우리는 requirements.txt 라는 이름만 허용하므로 관련 안내문구 추가  
                         self._asset_error(f"Error occurs while installing {package}. If you want to install from packages written file, make sure that your file name is << {fixed_txt_name} >> ~ " + e)
                 except pkg_resources.VersionConflict: # 설치 돼 있지만 버전이 다른 경우 재설치 
                     try: # nested try/except 
-                        print_color(f'- VersionConflict occurs. Start re-installing package << {package} >>. You should check the dependency for the package among assets.', 'red')
+                        print_color(f'- VersionConflict occurs. Start re-installing package << {package} >>. You should check the dependency for the package among assets.', 'yellow')
                         subprocess.check_call([sys.executable, '-m', 'pip', 'install', package])
-                    except OSError as e: 
-                        self._asset_error(f"Error occurs while re-installing {package} ~ " + e)
+                    except OSError as e:
+                        self._asset_error(f"Error occurs while re-installing {package} ~ " + e)  
                 # [FIXME] 그 밖의 에러는 아래에서 그냥 에러 띄우고 프로세스 kill 
                 # pkg_resources의 exception 참고 코드 : https://github.com/pypa/pkg_resources/blob/main/pkg_resources/__init__.py#L315
                 except pkg_resources.ResolutionError: # 위 두 가지 exception에 안걸리면 핸들링 안하겠다 
                     self._asset_error(f'ResolutionError occurs while installing package {package} @ {step_name} step. Please check the package name or dependency with other asset.')
                 except pkg_resources.ExtractionError: # 위 두 가지 exception에 안걸리면 핸들링 안하겠다 
-                    self._asset_error(f'ExtractionError occurs while installing package {package} @ {step_name} step. Please check the package name or dependency with other asset.')    
+                    self._asset_error(f'ExtractionError occurs while installing package {package} @ {step_name} step. Please check the package name or dependency with other asset.')
                 # [FIXME] 왜 unrechable 이지? https://github.com/pypa/pkg_resources/blob/main/pkg_resources/__init__.py#L315
                 except pkg_resources.UnknownExtra: # 위 두 가지 exception에 안걸리면 핸들링 안하겠다 
-                    self._asset_error(f'UnknownExtra occurs while installing package {package} @ {step_name} step. Please check the package name or dependency with other asset.')
-                # 위 try 코드 에러 없이 통과 했다면 해당 버전의 package 존재하니까 그냥 return 하면됨  
-        print_color(f"======================================== Finish dependency installation ======================================== \n", 'green')
-        return     
+                    self._asset_error(f'UnknownExtra occurs while installing package {package} @ {step_name} step. Please check the package name or dependency with other asset.')   
                 
+        print_color(f"======================================== Finish dependency installation ======================================== \n", 'green')
+        
+        return 
+    
     # [FIXME] 23.09.27 기준 scripts 폴더 내의 asset (subfolders) 유무 여부로만 check_asset_source 판단    
     def setup_asset(self, asset_config, check_asset_source='once'): 
         """ Description
