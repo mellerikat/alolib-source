@@ -339,10 +339,13 @@ class Asset:
         for step_name, requirements_list in requirements_dict.items(): 
             # yaml의 requirements에 requirements.txt를 적었다면, 해당 step 폴더에 requirements.txt가 존재하는 지 확인하고 존재한다면 내부에 작성된 패키지 명들을 추출하여 아래 loop에서 check & install 수행 
             if fixed_txt_name in requirements_list:
-                extracted_requirements_dict[step_name] = list(set(requirements_list + self.extract_requirements_txt(step_name))) # 이번 step 내의 패키지들 중 사용자가 실수로 완전 같은 패키지,버전을 두번 쓴 경우 중복제거 
-                extracted_requirements_dict[step_name].remove(fixed_txt_name) # requirements.txt라는 이름은 삭제 
+                requirements_txt_list = self.extract_requirements_txt(step_name)
+                requirements_txt_list = sorted(set(requirements_txt_list), key = lambda x: requirements_txt_list.index(x)) 
+                yaml_written_list = sorted(set(requirements_list), key = lambda x: requirements_list.index(x)) 
+                fixed_txt_index = yaml_written_list.index(fixed_txt_name)                
+                extracted_requirements_dict[step_name] = yaml_written_list[ : fixed_txt_index] + requirements_txt_list + yaml_written_list[fixed_txt_index + 1 : ]
             else: #requirements.txt 를 해당 step에 미기입한 경우 (yaml에서)
-                extracted_requirements_dict[step_name] = list(set(requirements_list)) 
+                extracted_requirements_dict[step_name] = sorted(set(requirements_list), key = lambda x: requirements_list.index(x)) 
 
         # yaml 수동작성과 requirements.txt 간, 혹은 서로다른 asset 간에 같은 패키지인데 version이 다른 중복일 경우 아래 우선순위에 따라 한번만 설치하도록 지정         
         # 우선순위 : 1. ALO master 종속 패키지 / 2. 이번 파이프라인의 먼저 오는 step (ex. input asset) / 3. 같은 step이라면 requirements.txt보다는 yaml에 직접 작성한 패키지 우선 
