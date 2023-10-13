@@ -147,6 +147,16 @@ class Asset:
         
         return data
 
+    def release(self, _path):
+        all_files = os.listdir(_path)
+        # .py 확장자를 가진 파일만 필터링하여 리스트에 추가하고 확장자를 제거
+        python_files = [file[:-3] for file in all_files if file.endswith(".py")]
+        try:
+            for module_name in python_files:
+                if module_name in sys.modules:
+                    del sys.modules[module_name]
+        except:
+            self._asset_error("An issue occurred while deleting the module")
 
     def get_toss(self, _pipe_num, envs):
         try:
