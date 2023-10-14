@@ -130,7 +130,7 @@ class Asset:
                 - 숫자 형은 모두 소수점 둘째 자리까지 표시합니다.  
             Parameters
             -----------
-                - result: Inference result summarized info. (str, length limit: 12) 
+                - result: Inference result summarized info. (str, length limit: 25) 
                 - score: model performance score to be used for model retraining (float, 0 ~ 1.0)
                 - note: optional & additional info. for inference result (str, length limit: 100) (optional)
                 - probability: Classification Solution의 경우 라벨 별로 확률 값을 제공합니다. (dict - key:str, value:float) (optional)
@@ -143,8 +143,8 @@ class Asset:
                 - summary_data = save_summary(result='OK', score=0.613, note='aloalo.csv', probability={'OK':0.715, 'NG':0.135, 'NG1':0.15})
         """
         # result는 문자열 12자 이내인지 확인
-        if not isinstance(result, str) or len(result) > 12:
-            self._asset_error("The length of string argument << result >>  must be within 12 ")
+        if not isinstance(result, str) or len(result) > 25:
+            self._asset_error("The length of string argument << result >>  must be within 25 ")
         
         # score는 0 ~ 1.0 사이의 값인지 확인
         if not isinstance(score, (int, float)) or not 0 <= score <= 1.0:
