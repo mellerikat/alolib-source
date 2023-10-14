@@ -288,11 +288,12 @@ class Asset:
         
         # create output path 
         output_path = ""
+        current_step_name = self.asset_envs['step'] 
         if  current_pipe_mode == "train_pipeline":
-            output_path = self.asset_envs["artifacts"][".train_artifacts"] + f"output/"
+            output_path = self.asset_envs["artifacts"][".train_artifacts"] + f"output/{current_step_name}"
             os.makedirs(output_path, exist_ok=True) # exist_ok =True : 이미 존재하면 그대로 둠 
         elif current_pipe_mode == 'inference_pipeline': 
-            output_path = self.asset_envs["artifacts"][".inference_artifacts"] + f"output/"
+            output_path = self.asset_envs["artifacts"][".inference_artifacts"] + f"output/{current_step_name}"
             os.makedirs(output_path, exist_ok=True)
             
         print_color(f">> Successfully got << output path >> for saving your data into csv or jpg file: \n {output_path} \n L [NOTE] ""The names of output file must be fixed as << output.csv, output.jpg >>"" ", "green")
