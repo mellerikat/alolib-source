@@ -245,12 +245,11 @@ class Asset:
         model_path = self.asset_envs["artifacts"][".train_artifacts"] + f"models/{current_step_name}/"
 
         # inference pipeline 때 train artifacts에 같은 step 이름 없으면 에러 
-        if current_pipe_mode  == "inference_pipeline":
+        if (current_pipe_mode  == "inference_pipeline") and (current_step_name != "inference"):
             if not os.path.exists(model_path):
                 self._asset_error(f"You must execute train pipeline first. There is no model path : \n {model_path}") 
-        
         # FIXME pipeline name 관련해서 추가 yaml 인자 받아서 추가 개발 필요 
-        if (current_pipe_mode  == "inference_pipeline") and (current_step_name == "inference"):
+        elif (current_pipe_mode  == "inference_pipeline") and (current_step_name == "inference"):
             model_path = self.asset_envs["artifacts"][".train_artifacts"] + f"models/train/"
             if not os.path.exists(model_path): 
                 self._asset_error(f"You must execute train pipeline first. There is no model path : \n {model_path}") 
