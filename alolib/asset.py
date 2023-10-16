@@ -433,9 +433,9 @@ class Asset:
             elif os.path.isabs(_ext_path) == True: # 절대경로. nas, local 둘다 가능 
                 return 'absolute'
             elif os.path.isabs(_ext_path) == False: 
-                self._asset_error(f'{_ext_path} is relative path. This is unsupported type of external load data path. Please enter the absolute path.')
+                self._asset_error(f'<< {_ext_path} >> is relative path. This is unsupported type of external load data path. Please enter the absolute path.')
             else: 
-                self._asset_error(f'{_ext_path} is unsupported type of external load data path.')
+                self._asset_error(f'<< {_ext_path} >> is unsupported type of external load data path.')
         
         # 1개여서 str인 경우도 list로 바꾸고, 여러개인 경우는 그냥 그대로 list로 
         # None (미입력) 일 땐 별도처리 필요 
