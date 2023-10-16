@@ -290,10 +290,10 @@ class Asset:
         output_path = ""
         current_step_name = self.asset_envs['step'] 
         if  current_pipe_mode == "train_pipeline":
-            output_path = self.asset_envs["artifacts"][".train_artifacts"] + f"output/{current_step_name}"
+            output_path = self.asset_envs["artifacts"][".train_artifacts"] + f"output/{current_step_name}/"
             os.makedirs(output_path, exist_ok=True) # exist_ok =True : 이미 존재하면 그대로 둠 
         elif current_pipe_mode == 'inference_pipeline': 
-            output_path = self.asset_envs["artifacts"][".inference_artifacts"] + f"output/{current_step_name}"
+            output_path = self.asset_envs["artifacts"][".inference_artifacts"] + f"output/{current_step_name}/"
             os.makedirs(output_path, exist_ok=True)
             
         print_color(f">> Successfully got << output path >> for saving your data into csv or jpg file: \n {output_path} \n L [NOTE] ""The names of output file must be fixed as << output.csv, output.jpg >>"" ", "green")
@@ -324,7 +324,7 @@ class Asset:
             self._asset_error(f"You entered the wrong parameter for << user_parameters >> in your config yaml file : << {current_pipe_mode} >>. \n L ""You can select the pipeline_mode among << {allowed_pipeline_mode_list} >>"" ")
             
         # create report path 
-        report_path = self.asset_envs["artifacts"][".train_artifacts"] + f"report/"
+        report_path = self.asset_envs["artifacts"][".train_artifacts"] + "report/"
         os.makedirs(report_path, exist_ok=True) # exist_ok =True : 이미 존재하면 그대로 둠 
 
         report_path  = report_path
@@ -408,8 +408,8 @@ class Asset:
         save_train_artifacts_path =  external_path['save_train_artifacts_path'] # 0개 일수도(None), 한 개 일수도(str), 두 개 이상 일수도 있음(list) 
         save_inference_artifacts_path =  external_path['save_inference_artifacts_path']
         
-        
-    def external_load_data(self, external_path, external_path_permission): 
+    # FIXME pipeline name까지 추후 반영해야할지? http://clm.lge.com/issue/browse/DXADVTECH-352?attachmentSortBy=dateTime&attachmentOrder=asc
+    def external_load_data(self, pipe_mode, external_path, external_path_permission): 
         """ Description
             -----------
                 - external_path로부터 데이터를 다운로드 
@@ -424,28 +424,16 @@ class Asset:
             -----------
                 - load_data(self.external_path, self.external_path_permission)
         """
+        
         ## FIXME 진짜 input 데이터 지우고 시작하는게 맞을지 검토필요 
         # fetch_data 할 때는 항상 input 폴더 비우고 시작한다 
         if os.path.exists(self.input_data_home):
             for file in os.scandir(self.input_data_home):
-                print_color(f">> Start removing pre-existing input data before fetching external data: {file}", "yellow")
+                print_color(f">> Start removing pre-existing input data before fetching external data: {file.name}", "blue") # os.DirEntry.name 
                 shutil.rmtree(file.path)
-     
-            
-        # 대전제 : 중복 이름의 데이터 폴더명은 복사 허용 x 
-        load_train_data_path =  external_path['load_train_data_path'] # 0개 일수도(None), 한 개 일수도(str), 두 개 이상 일수도 있음(list) 
-        load_inference_data_path =  external_path['load_inference_data_path']
-
-        # FIXME ws external_path_permission으로 받아 오는 수정 코드 작성
-        try:
-            load_s3_key_path = external_path_permission['s3_private_key_file'] # 무조건 1개 (str)
-            print_color(f'>> s3 private key file << load_s3_key_path >> loaded successfully.', 'green')   
-        except:
-            print_color('>> You did not write any << s3_private_key_file >> in the config yaml file. When you wanna get data from s3 storage, \n you have to write the s3_private_key_file path or set << ACCESS_KEY, SECRET_KEY >> in your os environment.' , 'yellow')
-            load_s3_key_path = None
-            
-        # external path가 존재 안하는 경우 
-        if (load_train_data_path is None) and (load_inference_data_path is None): 
+                
+        # external path가 train, inference 둘다 존재 안하는 경우 
+        if ( external_path['load_train_data_path'] is None) and (external_path['load_inference_data_path'] is None): 
             # 이미 input 폴더는 무조건 만들어져 있는 상태임 
             # FIXME input 폴더가 비어있으면 프로세스 종료, 뭔가 서브폴더가 있으면 사용자한테 존재하는 서브폴더 notify 후 yaml의 input_path에는 그 서브폴더들만 활용 가능하다고 notify
             # 만약 input 폴더에 존재하지 않는 서브폴더 명을 yaml의 input_path에 작성 시 input asset에서 에러날 것임   
@@ -453,13 +441,31 @@ class Asset:
                 self._asset_error(f'External path (load_train_data_path, load_inference_data_path) in experimental_plan.yaml are not written & << input >> folder is empty.') 
             else: 
                 print_color('[NOTICE] You can write only one of the << {} >> at << input_path >> parameter in your experimental_plan.yaml'.format(os.listdir(self.project_home + 'input/')), 'yellow')
-            return 
-        # None일 시 type을 list로 통일 
-        if load_train_data_path is None:
-            load_train_data_path = []
-        if load_inference_data_path is None:
-            load_inference_data_path = []
+            return
+        
+        # load할 데이터 경로 가져오기 
+        # 대전제 : 중복 이름의 데이터 폴더명은 복사 허용 x 
+        load_data_path = None 
+        if pipe_mode == "train_pipeline": 
+            load_data_path = external_path['load_train_data_path'] # 0개 일수도(None), 한 개 일수도(str), 두 개 이상 일수도 있음(list) 
+        elif pipe_mode == "inference_pipeline":
+            load_data_path = external_path['load_inference_data_path']
+        else: 
+            self._asset_error(f"You entered wrong pipeline in your expermimental_plan.yaml: << {pipe_mode} >>")
+
+        print_color(f">> Start loading external << {load_data_path} >> data into << input >> directory.", "blue")
+        
+        try:
+            load_s3_key_path = external_path_permission['s3_private_key_file'] # 무조건 1개 (str)
+            print_color(f'>> s3 private key file << load_s3_key_path >> loaded successfully.', 'green')   
+        except:
+            print_color('>> You did not write any << s3_private_key_file >> in the config yaml file. When you wanna get data from s3 storage, \n you have to write the s3_private_key_file path or set << ACCESS_KEY, SECRET_KEY >> in your os environment.' , 'yellow')
+            load_s3_key_path = None
             
+        # None일 시 type을 list로 통일 
+        if load_data_path is None:
+            load_data_path = []
+
         # external path가 존재하는 경우 
         def _get_ext_path_type(_ext_path): # inner function 
             if 's3:/' in _ext_path: 
@@ -473,12 +479,11 @@ class Asset:
         
         # 1개여서 str인 경우도 list로 바꾸고, 여러개인 경우는 그냥 그대로 list로 
         # None (미입력) 일 땐 별도처리 필요 
-        load_train_data_path = [load_train_data_path] if type(load_train_data_path) == str else load_train_data_path
-        load_inference_data_path =  [load_inference_data_path] if type(load_inference_data_path) == str else load_inference_data_path
+        load_data_path = [load_data_path] if type(load_data_path) == str else load_data_path
 
-        for ext_path in load_train_data_path + load_inference_data_path: 
+        for ext_path in load_data_path: 
             # ext_path는 무조건 nas 폴더 (파일말고) 혹은 s3내 폴더 URI
-            print_color(f'>> Start fetching external data from << {ext_path} >> into << input >> folder.', 'yellow')
+            print_color(f'>> [@ {pipe_mode}] Start fetching external data from << {ext_path} >> into << input >> directory.', 'blue')
             ext_type = _get_ext_path_type(ext_path) # None / nas / s3
             
             if ext_type  == 'absolute':
@@ -492,7 +497,6 @@ class Asset:
                     if mother_path in os.listdir( self.project_home + 'input/'): 
                         self._asset_error(f"You already have duplicated sub-folder name << {mother_path} >> in the << input >> folder. Please rename your sub-folder name if you use multiple data sources.")
                     shutil.copytree(ext_path, self.project_home + f"input/{mother_path}", dirs_exist_ok=True) # 중복 시 덮어쓰기 됨 
-
                 except: 
                     self._asset_error(f'Failed to copy data from << {ext_path} >>. You may have written wrong NAS path (must be existing directory!) \n / or You do not have permission to access \n / or You used duplicated sub-folder names for multiple data sources.')
             elif ext_type  == 's3':  
@@ -620,7 +624,7 @@ class Asset:
                                     
                 # ALO master 및 모든 asset들의 종속 패키지를 취합했을 때 버전 다른 중복 패키지 존재 시 먼저 진행되는 step(=asset)의 종속 패키지만 설치  
                 if base_pkg_name in dup_chk_set: 
-                    print_color(f'>> Ignored installing << {pkg_name} >>. Another version will be installed in the previous step.', 'yellow')
+                    print_color(f'>> Ignored installing << {pkg_name} >>. Another version would be installed in the previous step.', 'yellow')
                 else: 
                     dup_chk_set.add(base_pkg_name)
                     dup_checked_requirements_dict[step_name].append(pkg_name)
@@ -638,14 +642,14 @@ class Asset:
         count = 1
         # 사용자 환경에 priority_sorted_pkg_list의 각 패키지 존재 여부 체크 및 없으면 설치
         for step_name, package_list in dup_checked_requirements_dict.items(): # 마지막 step_name 은 force-reinstall 
-            print_color(f"======================================== Start dependency installation : << {step_name} >> ========================================", 'green')
+            print_color(f"======================================== Start dependency installation : << {step_name} >> ", 'blue')
             for package in package_list:
-                print_color(f'>> Start checking existence & installing package - {package} | Progress: ( {count} / {total_num_install} total packages )', 'yellow')
+                print_color(f'>> Start checking existence & installing package - {package} | Progress: ( {count} / {total_num_install} total packages )', 'blue')
                 count += 1
                 
                 if "--force-reinstall" in package: 
                     try: 
-                        print_color(f'- Start installing package - {package}', 'yellow')
+                        print_color(f'- Start installing package - {package}', 'blue')
                         subprocess.check_call([sys.executable, '-m', 'pip', 'install', package.replace('--force-reinstall', '').strip(), '--force-reinstall'])            
                     except OSError as e:
                         self._asset_error(f"Error occurs while --force-reinstalling {package} ~ " + e)  
@@ -659,7 +663,7 @@ class Asset:
                     print_color(f'- << {package} >> already exists', 'green')
                 except pkg_resources.DistributionNotFound: # 사용자 가상환경에 해당 package 설치가 아예 안 돼있는 경우 
                     try: # nested try/except 
-                        print_color(f'- Start installing package - {package}', 'yellow')
+                        print_color(f'- Start installing package - {package}', 'blue')
                         subprocess.check_call([sys.executable, '-m', 'pip', 'install', package])
                     except OSError as e:
                         # 가령 asset을 만든 사람은 abc.txt라는 파일 기반으로 pip install -r abc.txt 하고 싶었는데, 우리는 requirements.txt 라는 이름만 허용하므로 관련 안내문구 추가  
@@ -680,7 +684,7 @@ class Asset:
                 except pkg_resources.UnknownExtra: # 위 두 가지 exception에 안걸리면 핸들링 안하겠다 
                     self._asset_error(f'UnknownExtra occurs while installing package {package} @ {step_name} step. Please check the package name or dependency with other asset.')   
                 
-        print_color(f"======================================== Finish dependency installation ======================================== \n", 'green')
+        print_color(f"======================================== Finish dependency installation \n", 'blue')
         
         return 
     
@@ -700,11 +704,12 @@ class Asset:
             -----------
                 - setup_asset(asset_config, check_asset_source='once')
         """
+        
         asset_source_code = asset_config['source']['code'] # local, git url
         step_name = asset_config['step']
         git_branch = asset_config['source']['branch']
         step_path = os.path.join(self.asset_home, asset_config['step'])
-        
+        print_color(f">> Start setting-up << {step_name} >> asset @ << assets >> directory.", "blue")
         # 현재 yaml의 source_code가 git일 땐 control의 check_asset_source가 once이면 한번만 requirements 설치, every면 매번 설치하게 끔 돼 있음 
         ## FIXME ALOv2에서 기본으로 필요한 requirements.txt는 사용자가 알아서 설치 (git clone alov2 후 pip install로 직접) 
         ## asset 배치 (@ scripts 폴더)
@@ -736,7 +741,7 @@ class Asset:
                 elif (check_asset_source == "once" and not self._renew_asset(step_path)):
                     modification_time = os.path.getmtime(step_path)
                     modification_time = datetime.fromtimestamp(modification_time) # 마지막 수정시간 
-                    print_color(f"{step_name} asset has already been created at {modification_time}", "blue") 
+                    print_color(f"[NOTICE] << {step_name} >> asset had already been created at {modification_time}", "yellow") 
                     pass  
                 else: 
                     self._asset_error(f'You have written incorrect check_asset_source: {check_asset_source}')
