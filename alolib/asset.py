@@ -806,7 +806,7 @@ class Asset:
             ValueError("Artifacts folder not generated!")
 
         for dir_name in list(self.artifacts_structure.keys()):
-            self.artifacts_structure[dir_name] = self.project_home + "/"  + dir_name + "/"
+            self.artifacts_structure[dir_name] = self.project_home + dir_name + "/"
         
         return self.artifacts_structure
         
