@@ -460,7 +460,7 @@ class Asset:
                     shutil.copytree(ext_path, self.project_home + f"input/{mother_path}", dirs_exist_ok=True) # 중복 시 덮어쓰기 됨 
 
                 except: 
-                    self._asset_error(f'Failed to copy data from << {ext_path} >>. You may have written wrong NAS path (must be directory!) / or You do not have permission to access / or You used duplicated sub-folder names for multiple data sources.')
+                    self._asset_error(f'Failed to copy data from << {ext_path} >>. You may have written wrong NAS path (must be existing directory!) \n / or You do not have permission to access \n / or You used duplicated sub-folder names for multiple data sources.')
             elif ext_type  == 's3':  
                 # s3 key path가 yaml에 작성 돼 있으면 해당 key 읽어서 s3 접근, 작성 돼 있지 않으면 사용자 환경 aws config 체크 후 key 설정 돼 있으면 사용자 notify 후 활용, 없으면 에러 발생 
                 # 해당 s3 경로에 데이터 폴더 존재하는지 확인 후 폴더 통째로 가져오기, 부재 시 에러 발생 (서브폴더 없고 파일만 있는 경우도 부재로 간주, 서브폴더 있고 파일도 있으면 어짜피 서브폴더만 사용할 것이므로 에러는 미발생)
