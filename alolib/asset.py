@@ -430,10 +430,10 @@ class Asset:
         def _get_ext_path_type(_ext_path): # inner function 
             if 's3:/' in _ext_path: 
                 return 's3'
-            elif os.path.isabs(_ext_path) == True: 
+            elif os.path.isabs(_ext_path) == True: # 절대경로. nas, local 둘다 가능 
                 return 'absolute'
             elif os.path.isabs(_ext_path) == False: 
-                return 'relative'
+                self._asset_error(f'{_ext_path} is relative path. This is unsupported type of external load data path. Please enter the absolute path.')
             else: 
                 self._asset_error(f'{_ext_path} is unsupported type of external load data path.')
         
@@ -447,7 +447,7 @@ class Asset:
             print_color(f'>> Start fetching external data from << {ext_path} >> into << input >> folder.', 'yellow')
             ext_type = _get_ext_path_type(ext_path) # None / nas / s3
             
-            if (ext_type  == 'absolute') or (ext_type == 'relative'):
+            if ext_type  == 'absolute':
                 # 해당 nas 경로에 데이터 폴더 존재하는지 확인 후 폴더 통째로 가져오기, 부재 시 에러 발생 (서브폴더 없고 파일만 있는 경우도 부재로 간주, 서브폴더 있고 파일도 있으면 어짜피 서브폴더만 사용할 것이므로 에러는 미발생)
                 # nas 접근권한 없으면 에러 발생 
                 # 기존에 사용자 환경 input 폴더에 외부 데이터 경로 폴더와 같은 이름의 폴더가 있으면 notify 후 덮어 씌우기 
