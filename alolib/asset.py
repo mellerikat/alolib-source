@@ -12,7 +12,7 @@ from boto3.session import Session
 
 import subprocess 
 from collections import defaultdict
-# [FIXME] # DeprecationWarning: pkg_resources is deprecated as an API. 해결 필요? 
+# FIXME # DeprecationWarning: pkg_resources is deprecated as an API. 해결 필요? 
 import pkg_resources 
 import yaml
 import importlib
@@ -47,7 +47,7 @@ class Asset:
         self.asset_version = version
         self.debug_mode = False
         ##########################
-        # [FIXME] input 폴더는 external_path 데이터 가져올 때 초기화 돼야한다. 
+        # FIXME input 폴더는 external_path 데이터 가져올 때 초기화 돼야한다. 
         self.artifacts_structure = {
             'input': {}, 
             '.train_artifacts': {
@@ -388,9 +388,43 @@ class Asset:
         except Exception as e:
             self._asset_error(str(e))
 
-
-    def fetch_data(self, external_path, external_path_permission): 
-        ## [FIXME] 진짜 input 데이터 지우고 시작하는게 맞을지 검토필요 
+    # FIXME 가령 train pipeline만 실행해서 inference artifacts 미생성 시, .inference_artifacts 폴더 비워져 있는 것 확인해서 업로드 안해야할 듯   
+    def save_artifacts(self, external_path, external_path_permission):
+        """ Description
+            -----------
+                - external_path로 train, inference artifacts를 저장 
+                - 가령 train pipeline만 실행해서 inference artifacts 미생성 시, .inference_artifacts 폴더 비워져 있는 것 확인해서 업로드 안해야할 듯   
+            Parameters
+            -----------
+                - external_path: experimental_plan.yaml에 적힌 external_path 전체를 dict로 받아옴 
+                - external_path_permission: experimental_plan.yaml에 적힌 external_path_permission 전체를 dict로 받아옴 
+            Return
+            -----------
+                - 
+            Example
+            -----------
+                - save_artifacts(self.external_path, self.external_path_permission)
+        """
+        save_train_artifacts_path =  external_path['save_train_artifacts_path'] # 0개 일수도(None), 한 개 일수도(str), 두 개 이상 일수도 있음(list) 
+        save_inference_artifacts_path =  external_path['save_inference_artifacts_path']
+        
+        
+    def external_load_data(self, external_path, external_path_permission): 
+        """ Description
+            -----------
+                - external_path로부터 데이터를 다운로드 
+            Parameters
+            -----------
+                - external_path: experimental_plan.yaml에 적힌 external_path 전체를 dict로 받아옴 
+                - external_path_permission: experimental_plan.yaml에 적힌 external_path_permission 전체를 dict로 받아옴 
+            Return
+            -----------
+                - 
+            Example
+            -----------
+                - load_data(self.external_path, self.external_path_permission)
+        """
+        ## FIXME 진짜 input 데이터 지우고 시작하는게 맞을지 검토필요 
         # fetch_data 할 때는 항상 input 폴더 비우고 시작한다 
         if os.path.exists(self.input_data_home):
             for file in os.scandir(self.input_data_home):
@@ -407,13 +441,13 @@ class Asset:
             load_s3_key_path = external_path_permission['s3_private_key_file'] # 무조건 1개 (str)
             print_color(f'>> s3 private key file << load_s3_key_path >> loaded successfully.', 'green')   
         except:
-            print_color('>> You did not write any << s3_private_key_file >> in the config yaml file. When you wanna get data from s3 storage, you have to write the s3_private_key_file path or set << ACCESS_KEY, SECRET_KEY >> in your os environment.' , 'yellow')
+            print_color('>> You did not write any << s3_private_key_file >> in the config yaml file. When you wanna get data from s3 storage, \n you have to write the s3_private_key_file path or set << ACCESS_KEY, SECRET_KEY >> in your os environment.' , 'yellow')
             load_s3_key_path = None
             
         # external path가 존재 안하는 경우 
         if (load_train_data_path is None) and (load_inference_data_path is None): 
             # 이미 input 폴더는 무조건 만들어져 있는 상태임 
-            # [FIXME] input 폴더가 비어있으면 프로세스 종료, 뭔가 서브폴더가 있으면 사용자한테 존재하는 서브폴더 notify 후 yaml의 input_path에는 그 서브폴더들만 활용 가능하다고 notify
+            # FIXME input 폴더가 비어있으면 프로세스 종료, 뭔가 서브폴더가 있으면 사용자한테 존재하는 서브폴더 notify 후 yaml의 input_path에는 그 서브폴더들만 활용 가능하다고 notify
             # 만약 input 폴더에 존재하지 않는 서브폴더 명을 yaml의 input_path에 작성 시 input asset에서 에러날 것임   
             if len(os.listdir(self.project_home + 'input/')) == 0: # input 폴더 빈 경우 
                 self._asset_error(f'External path (load_train_data_path, load_inference_data_path) in experimental_plan.yaml are not written & << input >> folder is empty.') 
@@ -513,8 +547,8 @@ class Asset:
         else: 
             self._asset_error(f"<< {fixed_txt_name} >> dose not exist in << scripts/{step_name} folder >>. However, you have written {fixed_txt_name} at that step in << config/experimental_plan.yaml >>. Please remove {fixed_txt_name} in the yaml file.")
             
-    ## [FIXME] 사용자 환경의 패키지 설치 여부를 매 실행마다 체크하는 것을 on, off 하는 기능이 필요할 지?   
-    # [FIXME] aiplib @ git+http://mod.lge.com/hub/smartdata/aiplatform/module/aip.lib.git@ver2 같은 이름은 아예 미허용 
+    ## FIXME 사용자 환경의 패키지 설치 여부를 매 실행마다 체크하는 것을 on, off 하는 기능이 필요할 지?   
+    # FIXME aiplib @ git+http://mod.lge.com/hub/smartdata/aiplatform/module/aip.lib.git@ver2 같은 이름은 아예 미허용 
     def check_install_requirements(self, requirements_dict):
         """ Description
             -----------
@@ -567,7 +601,7 @@ class Asset:
                 base_pkg_name = "" 
                 if pkg_name.startswith("#") or pkg_name == "": # requirements.txt에도 주석 작성했거나 빈 줄을 첨가한 경우는 패스 
                     continue 
-                # [FIXME] 이외의 특수문자 있으면 에러 띄워야할지? 그냥 강제로 무조건 한번 설치 시도하는게 나을수도 있을 듯 한데..  
+                # FIXME 이외의 특수문자 있으면 에러 띄워야할지? 그냥 강제로 무조건 한번 설치 시도하는게 나을수도 있을 듯 한데..  
                 # 비교연산자 이외에는 지원안함 
                 if '<' in pkg_name: # <, <=  케이스 
                     base_pkg_name = pkg_name[ : pkg_name.index('<')]
@@ -620,7 +654,7 @@ class Asset:
                 try: # 이미 같은 버전 설치 돼 있는지 
                     # [pkg_resources 관련 참고] https://stackoverflow.com/questions/44210656/how-to-check-if-a-module-is-installed-in-python-and-if-not-install-it-within-t 
                     # 가령 aiplib @ git+http://mod.lge.com/hub/smartdata/aiplatform/module/aip.lib.git@ver2  같은 version 표기가 requirements.txt에 존재해도 conflict 안나는 것 확인 완료 
-                    # [FIXME] 사용자가 가령 pandas 처럼 (==version 없이) 작성하여도 아래 코드는 통과함 
+                    # FIXME 사용자가 가령 pandas 처럼 (==version 없이) 작성하여도 아래 코드는 통과함 
                     pkg_resources.get_distribution(package) # get_distribution tact-time 테스트: 약 0.001s
                     print_color(f'- << {package} >> already exists', 'green')
                 except pkg_resources.DistributionNotFound: # 사용자 가상환경에 해당 package 설치가 아예 안 돼있는 경우 
@@ -636,13 +670,13 @@ class Asset:
                         subprocess.check_call([sys.executable, '-m', 'pip', 'install', package])
                     except OSError as e:
                         self._asset_error(f"Error occurs while re-installing {package} ~ " + e)  
-                # [FIXME] 그 밖의 에러는 아래에서 그냥 에러 띄우고 프로세스 kill 
+                # FIXME 그 밖의 에러는 아래에서 그냥 에러 띄우고 프로세스 kill 
                 # pkg_resources의 exception 참고 코드 : https://github.com/pypa/pkg_resources/blob/main/pkg_resources/__init__.py#L315
                 except pkg_resources.ResolutionError: # 위 두 가지 exception에 안걸리면 핸들링 안하겠다 
                     self._asset_error(f'ResolutionError occurs while installing package {package} @ {step_name} step. Please check the package name or dependency with other asset.')
                 except pkg_resources.ExtractionError: # 위 두 가지 exception에 안걸리면 핸들링 안하겠다 
                     self._asset_error(f'ExtractionError occurs while installing package {package} @ {step_name} step. Please check the package name or dependency with other asset.')
-                # [FIXME] 왜 unrechable 이지? https://github.com/pypa/pkg_resources/blob/main/pkg_resources/__init__.py#L315
+                # FIXME 왜 unrechable 이지? https://github.com/pypa/pkg_resources/blob/main/pkg_resources/__init__.py#L315
                 except pkg_resources.UnknownExtra: # 위 두 가지 exception에 안걸리면 핸들링 안하겠다 
                     self._asset_error(f'UnknownExtra occurs while installing package {package} @ {step_name} step. Please check the package name or dependency with other asset.')   
                 
@@ -650,7 +684,7 @@ class Asset:
         
         return 
     
-    # [FIXME] 23.09.27 기준 scripts 폴더 내의 asset (subfolders) 유무 여부로만 check_asset_source 판단    
+    # FIXME 23.09.27 기준 scripts 폴더 내의 asset (subfolders) 유무 여부로만 check_asset_source 판단    
     def setup_asset(self, asset_config, check_asset_source='once'): 
         """ Description
             -----------
@@ -672,7 +706,7 @@ class Asset:
         step_path = os.path.join(self.asset_home, asset_config['step'])
         
         # 현재 yaml의 source_code가 git일 땐 control의 check_asset_source가 once이면 한번만 requirements 설치, every면 매번 설치하게 끔 돼 있음 
-        ## [FIXME] ALOv2에서 기본으로 필요한 requirements.txt는 사용자가 알아서 설치 (git clone alov2 후 pip install로 직접) 
+        ## FIXME ALOv2에서 기본으로 필요한 requirements.txt는 사용자가 알아서 설치 (git clone alov2 후 pip install로 직접) 
         ## asset 배치 (@ scripts 폴더)
         # local 일때는 check_asset_source 가 local인지 git url인지 상관 없음 
         if asset_source_code == "local":
@@ -711,7 +745,7 @@ class Asset:
         
         return 
         
-    # [FIXME] 추후 단순 폴더 존재 유무 뿐 아니라 이전 실행 yaml과 비교하여 git주소, branch 등도 체크해야함
+    # FIXME 추후 단순 폴더 존재 유무 뿐 아니라 이전 실행 yaml과 비교하여 git주소, branch 등도 체크해야함
     def _renew_asset(self, step_path): 
         """ Description
             -----------
@@ -741,56 +775,7 @@ class Asset:
             if isinstance(value, dict):
                 self.create_folders(value, folder_path)
 
-    # yaml 및 artifacts 백업
-    # [230927] train과 inference 구분하지 않으면 train ~ inference pipline 연속 실행시 초단위까지 중복돼서 에러 발생가능하므로 구분 
-    def backup_artifacts(self, pipelines):
-        """ Description
-            -----------
-                - 파이프라인 실행 종료 후 사용한 yaml과 결과 artifacts를 .history에 백업함 
-            Parameters
-            -----------
-                - pipelines: pipeline mode (train, inference)
-            Return
-            -----------
-                - 
-            Example
-            -----------
-                - backup_artifacts(pipe_mode)
-        """
-        if self.control['backup_artifacts'] == True:
-            current_pipelines = pipelines.split("_pipelines")[0]
-            # artifacts_home_생성시간 폴더를 제작
-            timestamp_option = True
-            hms_option = True
-        
-            if timestamp_option == True:  
-                if hms_option == True : 
-                    timestamp = datetime.now().strftime("%y%m%d_%H%M%S")
-                else : 
-                    timestamp = datetime.now().strftime("%y%m%d")     
-                # [FIXME] 추론 시간이 1초 미만일 때는 train pipeline과 .history  내 폴더 명 중복 가능성 존재. 임시로 cureent_pipelines 이름 추가하도록 대응. 수정 필요    
-                backup_folder= '{}_artifacts'.format(timestamp) + f"_{current_pipelines}/"
-            
-            # TODO current_pipelines 는 차후에 workflow name으로 변경이 필요
-            backup_artifacts_home = self.project_home + backup_folder
-            os.mkdir(backup_artifacts_home)
-            
-            # 이전에 실행이 가능한 환경을 위해 yaml 백업
-            shutil.copy(self.project_home + "config/experimental_plan.yaml", backup_artifacts_home)
-            # artifacts 들을 백업
-            for dir_name in list(self.artifacts_structure.keys()):
-                if dir_name == ".history" or dir_name == "input":
-                    continue 
-                else:
-                    os.mkdir(backup_artifacts_home + dir_name)
-                    shutil.copytree(self.project_home + dir_name, backup_artifacts_home + dir_name, dirs_exist_ok=True)
-            # backup artifacts를 .history로 이동 
-            try: 
-                shutil.move(backup_artifacts_home, self.project_home + ".history/")
-            except: 
-                self._asset_error(f"Failed to move {bakcup_artifacts_home} into {self.project_home}/.history/")
-            if os.path.exists(self.project_home + ".history/" + backup_folder):
-                print_color("[Done] .history backup (config yaml & artifacts) complete", "green")
+
     
     #def set_artifact(self, home_path, history):
     def set_artifacts(self):
@@ -1001,7 +986,7 @@ class Asset:
         #     raise ValueError("지원하지 않는 config 타입입니다. (choose : 'config')")
 
 
-    def save_data(self, output):
+    def external_save_data(self, output):
         """ Description
             -----------
                 - Asset 에서 생성한 데이터와 설정값을 저장한다.
