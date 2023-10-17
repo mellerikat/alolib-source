@@ -565,7 +565,11 @@ class Asset:
             save_artifacts_path = external_path['save_inference_artifacts_path']
         else: 
             self._asset_error(f"You entered wrong pipeline in your expermimental_plan.yaml: << {pipe_mode} >>")
-   
+
+        if save_artifacts_path == None: 
+            print_color('f[NOTICE][@{pipe_mode}] None of external path is written in your experimental_plan.yaml. Skip saving artifacts into external path.', 'yellow')
+            return  
+            
         # get s3 key 
         try:
             load_s3_key_path = external_path_permission['s3_private_key_file'] # 무조건 1개 (str)
