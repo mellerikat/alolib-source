@@ -4,7 +4,7 @@ import os
 import json
 import shutil
 import pickle
-
+import tarfile
 import boto3
 from datetime import datetime
 from pytz import timezone
@@ -24,7 +24,7 @@ import git
 from alolib.common import * 
 from alolib.exception import print_color
 
-from alolib.s3downloader import S3Downloader
+from alolib.s3handler import S3Handler
 #--------------------------------------------------------------------------------------------------------------------------
 #    GLOBAL VARIABLE
 #--------------------------------------------------------------------------------------------------------------------------
@@ -415,6 +415,7 @@ class Asset:
                 - external_path로부터 데이터를 다운로드 
             Parameters
             -----------
+                - pipe_mode: 호출 시의 파이프라인 (train_pipeline, inference_pipeline)
                 - external_path: experimental_plan.yaml에 적힌 external_path 전체를 dict로 받아옴 
                 - external_path_permission: experimental_plan.yaml에 적힌 external_path_permission 전체를 dict로 받아옴 
             Return
@@ -459,7 +460,7 @@ class Asset:
             load_s3_key_path = external_path_permission['s3_private_key_file'] # 무조건 1개 (str)
             print_color(f'>> s3 private key file << load_s3_key_path >> loaded successfully.', 'green')   
         except:
-            print_color('>> You did not write any << s3_private_key_file >> in the config yaml file. When you wanna get data from s3 storage, \n you have to write the s3_private_key_file path or set << ACCESS_KEY, SECRET_KEY >> in your os environment.' , 'yellow')
+            print_color('[NOTICE] You did not write any << s3_private_key_file >> in the config yaml file. When you wanna get data from s3 storage, \n you have to write the s3_private_key_file path or set << ACCESS_KEY, SECRET_KEY >> in your os environment.' , 'yellow')
             load_s3_key_path = None
             
         # None일 시 type을 list로 통일 
@@ -467,7 +468,7 @@ class Asset:
             load_data_path = []
 
         # external path가 존재하는 경우 
-        def _get_ext_path_type(_ext_path): # inner function 
+        def _get_ext_path_type(_ext_path: str): # inner function 
             if 's3:/' in _ext_path: 
                 return 's3'
             elif os.path.isabs(_ext_path) == True: # 절대경로. nas, local 둘다 가능 
@@ -482,9 +483,8 @@ class Asset:
         load_data_path = [load_data_path] if type(load_data_path) == str else load_data_path
 
         for ext_path in load_data_path: 
-            # ext_path는 무조건 nas 폴더 (파일말고) 혹은 s3내 폴더 URI
             print_color(f'>> [@ {pipe_mode}] Start fetching external data from << {ext_path} >> into << input >> directory.', 'blue')
-            ext_type = _get_ext_path_type(ext_path) # None / nas / s3
+            ext_type = _get_ext_path_type(ext_path) # absolute / s3
             
             if ext_type  == 'absolute':
                 # 해당 nas 경로에 데이터 폴더 존재하는지 확인 후 폴더 통째로 가져오기, 부재 시 에러 발생 (서브폴더 없고 파일만 있는 경우도 부재로 간주, 서브폴더 있고 파일도 있으면 어짜피 서브폴더만 사용할 것이므로 에러는 미발생)
@@ -504,7 +504,7 @@ class Asset:
                 # 해당 s3 경로에 데이터 폴더 존재하는지 확인 후 폴더 통째로 가져오기, 부재 시 에러 발생 (서브폴더 없고 파일만 있는 경우도 부재로 간주, 서브폴더 있고 파일도 있으면 어짜피 서브폴더만 사용할 것이므로 에러는 미발생)
                 # s3 접근권한 없으면 에러 발생 
                 # 기존에 사용자 환경 input 폴더에 외부 데이터 경로 폴더와 같은 이름의 폴더가 있으면 notify 후 덮어 씌우기 
-                s3_downloader = S3Downloader(s3_uri=ext_path, load_s3_key_path=load_s3_key_path)
+                s3_downloader = S3Handler(s3_uri=ext_path, load_s3_key_path=load_s3_key_path)
                 try: 
                     s3_downloader.download_folder()
                 except:
@@ -514,7 +514,111 @@ class Asset:
                 self._asset_error(f'{ext_path} is unsupported type of external data path.') 
                 
         return 
-    
+
+    def _tar_dir(self, _path): # inner function 
+        # _path: .train_artifacts / .inference_artifacts 
+        timestamp_option = True
+        hms_option = True
+        if timestamp_option == True:  
+            if hms_option == True : 
+                timestamp = datetime.now().strftime("%y%m%d_%H%M%S")
+            else : 
+                timestamp = datetime.now().strftime("%y%m%d")      
+        _save_path = self.project_home + f'{timestamp}_{_path}.tar.gz'
+        
+        tar = tarfile.open(_save_path, 'w:gz')
+        for root, dirs, files in os.walk(self.project_home  + _path):
+            for file_name in files:
+                tar.add(os.path.join(root, file_name))
+        tar.close()
+        return _save_path
+        
+        
+    # FIXME train, inference save artifacts 경로는 멀티 지원 필요 없을지? 
+    # FIXME pipeline name 추가 및 멀티 파이프라인 추가 시 수정 필요 
+    def external_save_artifacts(self, pipe_mode, external_path, external_path_permission):
+        """ Description
+            -----------
+                - 생성된 .train_artifacts, /inference_artifacts를 압축하여 (tar.gzip) 외부 경로로 전달  
+            Parameters
+            -----------
+                - pipe_mode: 호출 시의 파이프라인 (train_pipeline, inference_pipeline)
+                - external_path: experimental_plan.yaml에 적힌 external_path 전체를 dict로 받아옴 
+                - external_path_permission: experimental_plan.yaml에 적힌 external_path_permission 전체를 dict로 받아옴 
+            Return
+            -----------
+                - 
+            Example
+            -----------
+                - load_data(self.external_path, self.external_path_permission)
+        """
+        
+        # external path가 train, inference 둘다 존재 안하는 경우 
+        if (external_path['save_train_artifacts_path'] is None) and (external_path['save_inference_artifacts_path'] is None): 
+            print_color('[NOTICE] None of external path is written in your experimental_plan.yaml. Skip saving artifacts into external path.', 'yellow')
+            return
+        
+        save_artifacts_path = None 
+        if pipe_mode == "train_pipeline": 
+            save_artifacts_path = external_path['save_train_artifacts_path'] 
+        elif pipe_mode == "inference_pipeline":
+            save_artifacts_path = external_path['save_inference_artifacts_path']
+        else: 
+            self._asset_error(f"You entered wrong pipeline in your expermimental_plan.yaml: << {pipe_mode} >>")
+   
+        # get s3 key 
+        try:
+            load_s3_key_path = external_path_permission['s3_private_key_file'] # 무조건 1개 (str)
+            print_color(f'>> s3 private key file << load_s3_key_path >> loaded successfully.', 'green')   
+        except:
+            print_color('[NOTICE] You did not write any << s3_private_key_file >> in the config yaml file. When you wanna get data from s3 storage, \n you have to write the s3_private_key_file path or set << ACCESS_KEY, SECRET_KEY >> in your os environment.' , 'yellow')
+            load_s3_key_path = None
+
+        # external path가 존재하는 경우 
+        def _get_ext_path_type(_ext_path: str): # inner function 
+            if 's3:/' in _ext_path: 
+                return 's3'
+            elif os.path.isabs(_ext_path) == True: # 절대경로. nas, local 둘다 가능 
+                return 'absolute'
+            elif os.path.isabs(_ext_path) == False: # file이름으로 쓰면 에러날 것임 
+                self._asset_error(f'<< {_ext_path} >> is relative path. This is unsupported type of external save artifacts path. Please enter the absolute path.')
+            else: 
+                self._asset_error(f'<< {_ext_path} >> is unsupported type of external save artifacts path.')
+
+        # save artifacts 
+        print_color(f">> Start saving generated artifacts into external path << {save_artifacts_path} >>.", "blue")
+        ext_path = save_artifacts_path
+        ext_type = _get_ext_path_type(ext_path) # absolute / s3
+        tar_path = None 
+        if pipe_mode == "train_pipeline":
+            tar_path = self._tar_dir(".train_artifacts/") 
+        elif pipe_mode == "inference_pipeline": 
+            tar_path = self._tar_dir(".inference_artifacts/") 
+                    
+        if ext_type  == 'absolute':
+            try: 
+                shutil.copytree(tar_path, save_artifacts_path)
+            except: 
+                self._asset_error(f'Failed to copy compressed artifacts from {tar_path} to << {ext_path} >>.')
+            finally: 
+                shutil.rmtree(tar_path)
+        elif ext_type  == 's3':  
+            # s3 key path가 yaml에 작성 돼 있으면 해당 key 읽어서 s3 접근, 작성 돼 있지 않으면 사용자 환경 aws config 체크 후 key 설정 돼 있으면 사용자 notify 후 활용, 없으면 에러 발생 
+            # s3 접근권한 없으면 에러 발생 
+            s3_uploader = S3Handler(s3_uri=ext_path, load_s3_key_path=load_s3_key_path)
+            try: 
+                s3_uploader.upload_file(tar_path)
+            except:
+                self._asset_error(f'Failed to upload {tar_path} onto << {ext_path} >>')
+            finally: 
+                shutil.rmtree(tar_path)
+        else: 
+            # 미지원 external data storage type
+            self._asset_error(f'{ext_path} is unsupported type of external data path.') 
+        
+        print_color(f">> Successfully done saving << {tar_path} >> into << {save_artifacts_path} >> \n & removing << {tar_path} >>.", "green")  
+        return 
+        
     def extract_requirements_txt(self, step_name): 
         """ Description
             -----------
@@ -990,24 +1094,6 @@ class Asset:
         # else:
         #     raise ValueError("지원하지 않는 config 타입입니다. (choose : 'config')")
 
-
-    def external_save_data(self, output):
-        """ Description
-            -----------
-                - Asset 에서 생성한 데이터와 설정값을 저장한다.
-            Parameters
-            -----------
-                - output  (dict) : 특정 Asset 에서 생성한 데이터
-            Example
-            -----------
-                - save_data(output)
-        """
-        if output is None:
-            output = {}
-        if not isinstance(output, dict):
-            raise ValueError("지원하지 않는 데이터 타입입니다. (only dictionary)")
-
-        self.save_file(output, self.asset_envs['data_out_file'])
 
     def check_record_file(self):
         if self.metadata._get_artifact(self.asset_envs['step_name'], 'output')['file'] == []:

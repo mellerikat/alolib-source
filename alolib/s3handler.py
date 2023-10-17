@@ -3,11 +3,12 @@ import boto3
 from boto3.session import Session
 from botocore.client import Config
 from botocore.handlers import set_list_objects_encoding_type_url
-
+import tarfile
 from urllib.parse import urlparse
 
 INPUT_HOME = os.path.dirname(os.path.dirname(os.path.realpath(__file__))) + "/input/"
-class S3Downloader:
+
+class S3Handler:
     def __init__(self, s3_uri, load_s3_key_path):
         # url : (ex) 's3://aicontents-marketplace/cad/inference/' 
         # S3 VARIABLES
@@ -68,7 +69,6 @@ class S3Downloader:
     # https://saturncloud.io/blog/downloading-a-folder-from-s3-using-boto3-a-comprehensive-guide-for-data-scientists/
     def download_folder(self):
         s3 = self.create_s3_session_resource() # session resource 만들어야함 
-
         bucket = s3.Bucket(self.bucket)
         mother_folder = self.s3_folder.partition('/')[-1] 
         if os.path.exists(INPUT_HOME + mother_folder):
@@ -77,12 +77,20 @@ class S3Downloader:
             # 아래처럼 쓰면 해당 폴더 아래에 있는 것 전부 input 폴더로 복사 (폴더든, 파일이든) 
             # 따라서 single external path일 때 사용 가능 
 
-            # multi s3인 경우 input 폴더 밑에 여러 폴더들 배치될 수 있으므로 mother 폴더로 한번 감싸서 서로 구분한다 
-            
+            # multi s3인 경우 input 폴더 밑에 여러 폴더들 배치될 수 있으므로 mother 폴더로 한번 감싸서 서로 구분한다             
             target = os.path.join(INPUT_HOME + mother_folder, os.path.relpath(obj.key, self.s3_folder)) 
-        
             # [FIXME] 일단 중복 폴더 이름 허용했음 
-         
             os.makedirs(os.path.dirname(target), exist_ok=True)
-          
             bucket.download_file(obj.key, target)
+
+    def upload_file(self, file_path):
+        s3 = self.create_s3_session_resource() # session resource 만들어야함 
+        bucket = s3.Bucket(self.bucket)
+        file = tarfile.open(f'{file_path}') 
+        base_name = os.path.basename(os.path.normpath(file_path)) 
+        try:
+            bucket.put_object(Key=base_name, Body=file, ContentType='artifacts/gzip')
+        except: 
+            raise NotImplementedError(f"Failed to upload {file_path} onto {self.s3_folder}.")
+        
+        
