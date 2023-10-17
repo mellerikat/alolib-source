@@ -84,7 +84,7 @@ class S3Handler:
     def upload_file(self, file_path):
         s3 = self.create_s3_session_resource() # session resource 만들어야함 
         bucket = s3.Bucket(self.bucket)
-        base_name = os.path.basename(os.path.normpath(file_path)) 
+        base_name = os.path.basename(os.path.normpath(file_path)).replace("_.", "_") 
         try:
             with open(f'{file_path}', 'rb') as tar_file:  
                 bucket.put_object(Key=base_name, Body=tar_file, ContentType='artifacts/gzip')
