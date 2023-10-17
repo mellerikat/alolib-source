@@ -506,7 +506,7 @@ class Asset:
                 # 기존에 사용자 환경 input 폴더에 외부 데이터 경로 폴더와 같은 이름의 폴더가 있으면 notify 후 덮어 씌우기 
                 s3_downloader = S3Handler(s3_uri=ext_path, load_s3_key_path=load_s3_key_path)
                 try: 
-                    s3_downloader.download_folder()
+                    s3_downloader.download_folder(self.input_data_home)
                 except:
                     self._asset_error(f'Failed to download s3 data folder from << {ext_path} >>')
             else: 
