@@ -84,10 +84,11 @@ class S3Handler:
     def upload_file(self, file_path):
         s3 = self.create_s3_session_resource() # session resource 만들어야함 
         bucket = s3.Bucket(self.bucket)
-        base_name = os.path.basename(os.path.normpath(file_path)).replace("_.", "_") 
+        base_name = os.path.basename(os.path.normpath(file_path))
+        bucket_upload_path = self.s3_folder + base_name 
         try:
             with open(f'{file_path}', 'rb') as tar_file:  
-                bucket.put_object(Key=base_name, Body=tar_file, ContentType='artifacts/gzip')
+                bucket.put_object(Key=bucket_upload_path, Body=tar_file, ContentType='artifacts/gzip')
         except: 
             raise NotImplementedError(f"Failed to upload << {file_path} >> onto << {self.s3_uri} >>.")
         
