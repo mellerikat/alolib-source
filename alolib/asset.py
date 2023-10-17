@@ -601,6 +601,7 @@ class Asset:
                     
         if ext_type  == 'absolute':
             try: 
+                os.makedirs(save_artifacts_path, exist_ok=True) 
                 shutil.copy(tar_path, save_artifacts_path)
             except: 
                 self._asset_error(f'Failed to copy compressed artifacts from {tar_path} to << {ext_path} >>.')
