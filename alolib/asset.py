@@ -595,9 +595,9 @@ class Asset:
         ext_type = _get_ext_path_type(ext_path) # absolute / s3
         tar_path = None 
         if pipe_mode == "train_pipeline":
-            tar_path = self._tar_dir(".train_artifacts/") 
+            tar_path = self._tar_dir(".train_artifacts") 
         elif pipe_mode == "inference_pipeline": 
-            tar_path = self._tar_dir(".inference_artifacts/") 
+            tar_path = self._tar_dir(".inference_artifacts") 
                     
         if ext_type  == 'absolute':
             try: 
