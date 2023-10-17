@@ -12,6 +12,7 @@ class S3Handler:
         # S3 VARIABLES
         # TODO 파일 기반으로 key 로드할 거면 무조건 파일은 access_key 먼저 넣고, 그 다음 줄에 secret_key 넣는 구조로 만들게 가이드한다.
         self.access_key, self.secret_key = self.init_s3_key(load_s3_key_path) 
+        self.s3_uri = s3_uri 
         self.bucket, self.s3_folder =  self.parse_s3_url(s3_uri) # (ex) aicontents-marketplace, cad/inference/
         
     def init_s3_key(self, s3_key_path): 
@@ -88,6 +89,6 @@ class S3Handler:
         try:
             bucket.put_object(Key=base_name, Body=file, ContentType='artifacts/gzip')
         except: 
-            raise NotImplementedError(f"Failed to upload {file_path} onto {self.s3_folder}.")
+            raise NotImplementedError(f"Failed to upload {file_path} onto {self.s3_uri}.")
         
         

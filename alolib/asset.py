@@ -605,7 +605,7 @@ class Asset:
             except: 
                 self._asset_error(f'Failed to copy compressed artifacts from {tar_path} to << {ext_path} >>.')
             finally: 
-                shutil.rmtree(tar_path)
+                os.remove(tar_path)
         elif ext_type  == 's3':  
             # s3 key path가 yaml에 작성 돼 있으면 해당 key 읽어서 s3 접근, 작성 돼 있지 않으면 사용자 환경 aws config 체크 후 key 설정 돼 있으면 사용자 notify 후 활용, 없으면 에러 발생 
             # s3 접근권한 없으면 에러 발생 
@@ -615,7 +615,7 @@ class Asset:
             except:
                 self._asset_error(f'Failed to upload {tar_path} onto << {ext_path} >>')
             finally: 
-                shutil.rmtree(tar_path)
+                os.remove(tar_path)
         else: 
             # 미지원 external data storage type
             self._asset_error(f'{ext_path} is unsupported type of external data path.') 
