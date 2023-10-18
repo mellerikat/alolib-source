@@ -438,7 +438,7 @@ class Asset:
             return
         
         # FIXME external path가 train, inference 둘다 존재 안하는 경우에는 input 폴더 일단 안비우게 수정 
-        if (external_path['load_train_data_path'] is not None) or (external_path['load_inference_data_path'] is not None)
+        if (external_path['load_train_data_path'] is not None) or (external_path['load_inference_data_path'] is not None):
             ## FIXME 진짜 input 데이터 지우고 시작하는게 맞을지 검토필요 
             # fetch_data 할 때는 항상 input 폴더 비우고 시작한다 
             if os.path.exists(self.input_data_home):
