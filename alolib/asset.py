@@ -242,7 +242,19 @@ class Asset:
         # default로는 step name은 train-inference 혹은 inference1-inference2 (추후 pipeline_name 추가 시) 간의 step 명이 같은 것 끼리 pair 
         # self.asset_envs['step']는 main.py에서 설정 
         current_step_name = self.asset_envs['step'] 
-        model_path = self.asset_envs["artifacts"][".train_artifacts"] + f"models/{current_step_name}/"
+
+        # TODO train2도 train등으로 읽어 오게 수정 논의 필요
+        current_step_name = ''.join(filter(lambda x: x.isalpha() or x == '_', current_step_name))
+
+        # TODO use_inference_path true인 경우 inference path 사용하게 수정
+        artifacts_name = ".train_artifacts"
+        if use_inference_path == True and current_pipe_mode == "inference_pipeline":
+            # infernce path를 사용
+            artifacts_name = ".inference_artifacts"
+        elif use_inference_path == True and current_pipe_mode != "inference_pipeline":
+            self._asset_error("If you set 'use_inference_path' to True, it should operate in the inference pipeline.")
+
+        model_path = self.asset_envs["artifacts"][artifacts_name] + f"models/{current_step_name}/"
 
         # inference pipeline 때 train artifacts에 같은 step 이름 없으면 에러 
         if (current_pipe_mode  == "inference_pipeline") and (current_step_name != "inference"):
@@ -250,7 +262,7 @@ class Asset:
                 self._asset_error(f"You must execute train pipeline first. There is no model path : \n {model_path}") 
         # FIXME pipeline name 관련해서 추가 yaml 인자 받아서 추가 개발 필요 
         elif (current_pipe_mode  == "inference_pipeline") and (current_step_name == "inference"):
-            model_path = self.asset_envs["artifacts"][".train_artifacts"] + f"models/train/"
+            model_path = self.asset_envs["artifacts"][artifacts_name] + f"models/train/"
             if not os.path.exists(model_path): 
                 self._asset_error(f"You must execute train pipeline first. There is no model path : \n {model_path}") 
             elif (os.path.exists(model_path)) and (len(os.listdir(model_path)) == 0): 
