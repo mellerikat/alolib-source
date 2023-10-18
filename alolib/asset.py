@@ -1066,7 +1066,7 @@ class Asset:
                 try:
                     self.output, config = func(self, *args, **kwargs)
                     if not isinstance(self.output, dict) or not isinstance(config, dict):
-                        self._asset_error("slave에서 반환된 값이 딕셔너리가 아닙니다.")  # 반환된 값이 딕셔너리가 아닐 때 에러 발생
+                        self._asset_error(f"{step}에서 반환된 값이 딕셔너리가 아닙니다.")  # 반환된 값이 딕셔너리가 아닐 때 에러 발생
                 except TypeError:
                     self._asset_error(f"{step} is no return in Slave asset. check asset!!!!!!")
                 #METADATA
