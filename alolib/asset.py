@@ -1062,14 +1062,16 @@ class Asset:
             try:
                 #METADATA
                 # self.metadata._set_execution('RUNNING')
-                self.output, config = func(self, *args, **kwargs)
+                step = self.asset_envs["step"]
+                try:
+                    self.output, config = func(self, *args, **kwargs)
+                except TypeError:
+                    self._asset_error(f"{step} is no return in Slave asset. check asset!!!!!!")
                 #METADATA
                 # self.metadata._set_execution('COMPLETED')
                 # self._set_context_system()
             except Exception as e:
-                # self._set_context_system()
                 self._asset_error(str(e))
-                # print(str(e))
             return self.output, config
         return _run
 
