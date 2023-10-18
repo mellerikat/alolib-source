@@ -77,7 +77,7 @@ class S3Handler:
             # 따라서 single external path일 때 사용 가능 
             # multi s3인 경우 input 폴더 밑에 여러 폴더들 배치될 수 있으므로 mother 폴더로 한번 감싸서 서로 구분한다             
             target = os.path.join(input_path + mother_folder, os.path.relpath(obj.key, self.s3_folder)) 
-            # [FIXME] 일단 중복 폴더 이름 허용했음 
+            # FIXME 일단 중복 폴더 이름 허용했음 
             os.makedirs(os.path.dirname(target), exist_ok=True)
             bucket.download_file(obj.key, target)
 

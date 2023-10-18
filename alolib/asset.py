@@ -425,16 +425,9 @@ class Asset:
             -----------
                 - load_data(self.external_path, self.external_path_permission)
         """
-        
-        ## FIXME 진짜 input 데이터 지우고 시작하는게 맞을지 검토필요 
-        # fetch_data 할 때는 항상 input 폴더 비우고 시작한다 
-        if os.path.exists(self.input_data_home):
-            for file in os.scandir(self.input_data_home):
-                print_color(f">> Start removing pre-existing input data before fetching external data: {file.name}", "blue") # os.DirEntry.name 
-                shutil.rmtree(file.path)
                 
         # external path가 train, inference 둘다 존재 안하는 경우 
-        if ( external_path['load_train_data_path'] is None) and (external_path['load_inference_data_path'] is None): 
+        if (external_path['load_train_data_path'] is None) and (external_path['load_inference_data_path'] is None): 
             # 이미 input 폴더는 무조건 만들어져 있는 상태임 
             # FIXME input 폴더가 비어있으면 프로세스 종료, 뭔가 서브폴더가 있으면 사용자한테 존재하는 서브폴더 notify 후 yaml의 input_path에는 그 서브폴더들만 활용 가능하다고 notify
             # 만약 input 폴더에 존재하지 않는 서브폴더 명을 yaml의 input_path에 작성 시 input asset에서 에러날 것임   
@@ -444,6 +437,15 @@ class Asset:
                 print_color('[NOTICE] You can write only one of the << {} >> at << input_path >> parameter in your experimental_plan.yaml'.format(os.listdir(self.project_home + 'input/')), 'yellow')
             return
         
+        # FIXME external path가 train, inference 둘다 존재 안하는 경우에는 input 폴더 일단 안비우게 수정 
+        if (external_path['load_train_data_path'] is not None) or (external_path['load_inference_data_path'] is not None)
+            ## FIXME 진짜 input 데이터 지우고 시작하는게 맞을지 검토필요 
+            # fetch_data 할 때는 항상 input 폴더 비우고 시작한다 
+            if os.path.exists(self.input_data_home):
+                for file in os.scandir(self.input_data_home):
+                    print_color(f">> Start removing pre-existing input data before fetching external data: {file.name}", "blue") # os.DirEntry.name 
+                    shutil.rmtree(file.path)
+                
         # load할 데이터 경로 가져오기 
         # 대전제 : 중복 이름의 데이터 폴더명은 복사 허용 x 
         load_data_path = None 
