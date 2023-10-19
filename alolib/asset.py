@@ -62,7 +62,7 @@ class Asset:
         # 현재 PROJECT PATH 보다 한 층 위 folder 
         self.project_home = self.asset_envs['project_home']
         # FIXME  사용자 api 에서 envs 를 arguments로 안받기 위해 artifacts 변수 생성 
-        self.asset_envs["artifacts"] = self.set_artifacts()
+        self.asset_envs["artifacts"] = self.asset_envs["artifacts"]
         # input 데이터 경로 
         self.input_data_home = self.project_home + "input/"
         # asset 코드들의 위치
