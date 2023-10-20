@@ -13,6 +13,8 @@ import yaml
 from alolib.common import * 
 from alolib.exception import print_color
 
+import logging
+import logging.config 
 #--------------------------------------------------------------------------------------------------------------------------
 #    GLOBAL VARIABLE
 #--------------------------------------------------------------------------------------------------------------------------
@@ -79,6 +81,31 @@ class Asset:
         current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         os.environ['INFTIME'] = current_time
 
+        # 4. logging conifg (ref. : https://www.daleseo.com/python-logging-config/)
+        self.logging_config = { 
+                "version": 1,
+                "formatters": {
+                    "simple": {"format": "[%(name)s] %(message)s"},
+                    "complex": {
+                        "format": f"%(asctime)s %(levelname)s [%(filename)s:%(lineno)d]: [{self.asset_envs['pipeline']}] / [{self.asset_envs['step']} step] - %(message)s"
+                    },
+                },
+                "handlers": {
+                    "console": {
+                        "class": "logging.StreamHandler",
+                        "formatter": "simple",
+                        "level": "INFO",
+                    },
+                    "file": {
+                        "class": "logging.FileHandler",
+                        "filename": "user_asset.log", # FIXME log 파일 경로 변경 필요 (train, inference pipeline name 에 따라 artifacts log 쪽으로)
+                        "formatter": "complex",
+                        "level": "INFO",
+                    },
+                },
+                "root": {"handlers": ["console", "file"], "level": "INFO"},
+                "loggers": {"ERROR": {"level": "ERROR"}, "WARNING": {"level": "WARNING"}, "INFO": {"level": "INFO"}},
+            }
         # try:
         #     # 4. set argv
         #     self.asset_args = argv#self._set_arguments(argv)
@@ -460,20 +487,24 @@ class Asset:
         return _run
 
 
-    def save_log(self, msg):
+    def save_info(self, msg):
         """ Description
             -----------
-                - User Asset에서 필요한 정보를 저장한다.
+                - User Asset에서 알려주고 싶은 정보를 저장한다.
             Parameters
             -----------
                 - msg (str) : 저장할 문자열 (max length : 255)
             Example
             -----------
-                - save_log('hello')
+                - save_info('hello')
         """
         if not isinstance(msg, str):
             self._asset_error(f"Failed to save_log(). Only support << str >> type for the argument. \n You entered: {msg}")
-        print_color(f'[LOG]{msg}', 'yellow')
+        
+        logging.config.dictConfig(self.logging_config)
+        info_logger = logging.getLogger("INFO") 
+        info_logger.info(f'{msg}')
+ 
 
     def save_warning(self, msg):
         """Description
@@ -490,7 +521,9 @@ class Asset:
         if not isinstance(msg, str):
             self._asset_error(f"Failed to save_warning(). Only support << str >> type for the argument. \n You entered: {msg}")
 
-        print_color(f'[WARNING]{msg}', 'yellow')
+        logging.config.dictConfig(self.logging_config)
+        warning_logger = logging.getLogger("WARNING") 
+        warning_logger.warning(f'{msg}')
 
 
     def save_error(self, msg):
@@ -508,7 +541,10 @@ class Asset:
         if not isinstance(msg, str):
             self._asset_error(f"Failed to save_warning(). Only support << str >> type for the argument. \n You entered: {msg}")
 
-        print_color(f'[ERROR]{msg}', 'yellow')
+        logging.config.dictConfig(self.logging_config)
+        error_logger = logging.getLogger("ERROR") 
+        error_logger.error(f'{msg}')
+
         
         
     def check_args(self, arg_key, is_required=False, default="", chng_type="str" ):
