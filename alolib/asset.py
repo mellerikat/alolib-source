@@ -26,13 +26,12 @@ ARG_NAME_MAX_LENGTH = 30
 #--------------------------------------------------------------------------------------------------------------------------
 # TODO 참고로 코드 상에 '/' 같은 경로를 쓰는건 docker 기반이고 linux 환경만 감안하기 때문. (윈도우의 '\\' 같은건 비허용)
 class Asset:
-    def __init__(self, envs, argv, version='None'):
+    # def __init__(self, envs, argv, version='None'):
+    def __init__(self, asset_structure):
         self.asset = self
-        self.asset_envs = {}
-        self.asset_args = {}
-        self.asset_config = {}
+        
         self.context = {}
-        self.asset_version = version
+        
         self.debug_mode = False
         ##########################
         # FIXME input 폴더는 external_path 데이터 가져올 때 초기화 돼야한다. 
@@ -58,7 +57,14 @@ class Asset:
         ##########################
         # 1. set envs
         ##########################
-        self.asset_envs = envs
+        try:
+            self.asset_envs = asset_structure.envs
+            self.asset_args = asset_structure.args
+            self.asset_data = asset_structure.data
+            self.asset_config = asset_structure.config
+            self.asset_version =self.asset_envs['version']
+        except Exception as e:
+            self._asset_error(str(e))
         # 현재 PROJECT PATH 보다 한 층 위 folder 
         self.project_home = self.asset_envs['project_home']
         # FIXME  사용자 api 에서 envs 를 arguments로 안받기 위해 artifacts 변수 생성 
@@ -73,42 +79,122 @@ class Asset:
         current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         os.environ['INFTIME'] = current_time
 
-        try:
-            # 4. set argv
-            self.asset_args = argv#self._set_arguments(argv)
-            # 5. check arg
-            # 개발 필요 230913 swj
-            # self._check_arguments(self.asset_args)
+        # try:
+        #     # 4. set argv
+        #     self.asset_args = argv#self._set_arguments(argv)
+        #     # 5. check arg
+        #     # 개발 필요 230913 swj
+        #     # self._check_arguments(self.asset_args)
 
-            # 6. update envs : NOTE 위치 중요 (self.context 와 self.metadata를 활용한다.)
+        #     # 6. update envs : NOTE 위치 중요 (self.context 와 self.metadata를 활용한다.)
 
-            # 6. update asset information : version, args
-            # 개발 필요 230913 swj
-            # self._set_asset_information()
+        #     # 6. update asset information : version, args
+        #     # 개발 필요 230913 swj
+        #     # self._set_asset_information()
 
-            # 8. Tfrecord
+        #     # 8. Tfrecord
 
-            # 9. 처음실행되는 step 에서 확인
-            # 폴더 생성 개발 필요
-            # if self.context['system']['last_step'] == 'none':
-            #     check_path(self.asset_envs['input_path'])
-            #     check_path(self.asset_envs['metadata_path'])
-            #     check_path(self.asset_envs['output_path'])
-            #     check_path(self.asset_envs['train_path'])
-            #     check_path(self.asset_envs['inference_path'])
-            #     check_path(self.asset_envs['interface_path'])
+        #     # 9. 처음실행되는 step 에서 확인
+        #     # 폴더 생성 개발 필요
+        #     # if self.context['system']['last_step'] == 'none':
+        #     #     check_path(self.asset_envs['input_path'])
+        #     #     check_path(self.asset_envs['metadata_path'])
+        #     #     check_path(self.asset_envs['output_path'])
+        #     #     check_path(self.asset_envs['train_path'])
+        #     #     check_path(self.asset_envs['inference_path'])
+        #     #     check_path(self.asset_envs['interface_path'])
                 
-            #     check_path(self.asset_envs['temp_path'])
-            #     check_path(self.asset_envs['storage_path'])
-            #     check_path(self.asset_envs['model_path'])
+        #     #     check_path(self.asset_envs['temp_path'])
+        #     #     check_path(self.asset_envs['storage_path'])
+        #     #     check_path(self.asset_envs['model_path'])
 
-            # self._asset_info()
-        except Exception as e:
-            self._asset_error(str(e))
+        #     # self._asset_info()
+        # except Exception as e:
+        #     self._asset_error(str(e))
     
 ##################################################################################################################################################################
     #                                                                           Slave API
     ##################################################################################################################################################################
+    def load_config(self):
+        """ Description
+            -----------
+                - Asset 에 필요한 config를 반환한다.
+            Parameters
+            -----------
+            Return
+            -----------
+                - config  (dict)
+            Example
+            -----------
+                - config = load_config()
+        """
+        return self.asset_config.copy()
+
+    def load_args(self):
+        """ Description
+            -----------
+                - Asset 에 필요한 args를 반환한다.
+            Parameters
+            -----------
+            Return
+            -----------
+                - args  (dict)
+            Example
+            -----------
+                - args = load_args()
+        """
+        return self.asset_args.copy()
+
+    def load_envs(self):
+        """ Description
+            -----------
+                - Asset 에 필요한 envs를 반환한다.
+            Parameters
+            -----------
+            Return
+            -----------
+                - envs  (dict)
+            Example
+            -----------
+                - envs = load_envs()
+        """
+        return self.asset_envs.copy()
+    
+    # FIXME data도 copy()로 돌려줄 필요 있을 지? 
+    def load_data(self):
+        """ Description
+            -----------
+                - Asset 에 필요한 data를 반환한다.
+            Parameters
+            -----------
+            Return
+            -----------
+                - data  (dict)
+            Example
+            -----------
+                - data = load_data()
+        """
+        return self.asset_data
+    
+    def save_data(self, data):
+        if not isinstance(data, dict):
+            self._asset_error("Failed to save_data(). only << dict >> type is supported for the function argument.")
+        # 사용자가 특정 asset에서 data 변경 없이 그냥 바로 다음 step으로 넘겨버리는 경우 
+        if self.asset_data == data: 
+            print_color("[NOTICE] You called << self.asset.save_data() >>. \n However, inner contents of the data is not updated comparted to previous step.", "green")
+        # asset_data update ==> decorator_run에서 다음 step으로 넘겨주는데 사용됨
+        self.asset_data = data
+        
+    def save_config(self, config):
+        if not isinstance(config, dict):
+            self._asset_error("Failed to save_config(). only << dict >> type is supported for the function argument.")
+        # 사용자가 특정 asset에서 config 변경 없이 그냥 바로 다음 step으로 넘겨버리는 경우 
+        if self.asset_config == config: 
+            print_color("[NOTICE] You called << self.asset.save_config() >>. \n However, inner contents of the config is not updated comparted to previous step.", "green")
+        # asset_config update ==> decorator_run에서 다음 step으로 넘겨주는데 사용됨
+        self.asset_config = config 
+    
+    
     def save_summary(self, result, score, note="AI Advisor", probability=None):
         
         """ Description
@@ -338,34 +424,6 @@ class Asset:
     ##################################################################################################################################################################
         
 #######################################
-    def load_config(self, conf):
-        """ Description
-            -----------
-                - Asset 에 필요한 config 를 가져온다.
-            Parameters
-            -----------
-                - conf (str) : config의 종류 ('envs', 'args', 'config')
-                               envs : 모델컨덕터의 environments 설정 값
-                               args : 모델컨덕터의 arguments 설정 값
-                               config : 모델컨덕터 워크플로어 운영 설정 값
-            Return
-            -----------
-                - data (dict)
-            Example
-            -----------
-                - envs = load_config('envs')
-        """
-
-        ret_config = dict()
-        if conf == 'envs':
-            ret_config = self.asset_envs.copy()
-        elif conf == 'args':
-            ret_config = self.asset_args.copy()
-        elif conf == 'config':
-            ret_config = self.asset_config.copy()
-        else:
-            raise ValueError("지원하지 않는 config 타입입니다. (choose : 'envs', 'args', 'config')")
-        return ret_config
 
 
     def load_data(self, step = None):
@@ -413,46 +471,55 @@ class Asset:
                 # self.metadata._set_execution('RUNNING')
                 step = self.asset_envs["step"]
                 try:
-                    self.output, config = func(self, *args, **kwargs)
-                    if not isinstance(self.output, dict) or not isinstance(config, dict):
-                        self._asset_error(f"{step}에서 반환된 값이 딕셔너리가 아닙니다.")  # 반환된 값이 딕셔너리가 아닐 때 에러 발생
+                    prev_data, prev_config = self.asset_data, self.asset_config 
+                    # run user asset 
+                    func(self, *args, **kwargs)
+                    # check whether data & config are updated
+                    if prev_data != self.asset_data:
+                        print_color(f"Successfully updated the data @ << {step} >> step", "green")
+                    if prev_config != self.asset_config: 
+                        print_color(f"Successfully updated the config @ << {step} >> step", "green")
+                        
+                    #if not isinstance(self.output, dict) or not isinstance(config, dict):
+                    if not isinstance( self.asset_data, dict) or not isinstance(self.asset_config, dict):
+                        self._asset_error(f"You should make dict for argument of << self.asset.save_data()>> or << self.asset.save_config() >> \n @ << {step} >> step.")  # 반환된 값이 딕셔너리가 아닐 때 에러 발생
                 except TypeError:
-                    self._asset_error(f"{step} is no return in Slave asset. check asset!!!!!!")
+                    self._asset_error(f"Failed to run your << {step} >> step. Please check whetehr you correctly used user API.")
                 #METADATA
                 # self.metadata._set_execution('COMPLETED')
                 # self._set_context_system()
             except Exception as e:
                 self._asset_error(str(e))
-            return self.output, config
+            return self.asset_data, self.asset_config  #self.output, config
         return _run
 
 
-    def save_config(self, data, step):
-        """ Description
-            -----------
-                - Workflow 운영에 필요한 Asset config 를 저장한다.
-            Parameters
-            -----------
-                - data (dict) : config 에 저장할 데이터
-                - conf (str) : config의 종류 ('config')
-                               config : 모델컨덕터 워크플로어 운영 설정 값
-            Return
-            -----------
-                - None
-            Example
-            -----------
-                - save_config(data, 'config')
-        """
+    # def save_config(self, data, step):
+    #     """ Description
+    #         -----------
+    #             - Workflow 운영에 필요한 Asset config 를 저장한다.
+    #         Parameters
+    #         -----------
+    #             - data (dict) : config 에 저장할 데이터
+    #             - conf (str) : config의 종류 ('config')
+    #                            config : 모델컨덕터 워크플로어 운영 설정 값
+    #         Return
+    #         -----------
+    #             - None
+    #         Example
+    #         -----------
+    #             - save_config(data, 'config')
+    #     """
 
-        if not isinstance(data, dict):
-            raise TypeError("지원하지 않는 데이터 타입입니다. (only dictionary)")
+    #     if not isinstance(data, dict):
+    #         raise TypeError("지원하지 않는 데이터 타입입니다. (only dictionary)")
 
-        self.asset_config[step] = data
+    #     self.asset_config[step] = data
 
-        # if conf == 'config':
-        #     self._set_context(data)
-        # else:
-        #     raise ValueError("지원하지 않는 config 타입입니다. (choose : 'config')")
+    #     # if conf == 'config':
+    #     #     self._set_context(data)
+    #     # else:
+    #     #     raise ValueError("지원하지 않는 config 타입입니다. (choose : 'config')")
 
 
     def check_record_file(self):
