@@ -181,7 +181,7 @@ class Asset:
             self._asset_error("Failed to save_data(). only << dict >> type is supported for the function argument.")
         # 사용자가 특정 asset에서 data 변경 없이 그냥 바로 다음 step으로 넘겨버리는 경우 
         if self.asset_data == data: 
-            print_color("[NOTICE] You called << self.asset.save_data() >>. \n However, inner contents of the data is not updated comparted to previous step.", "green")
+            print_color("[NOTICE] You called << self.asset.save_data() >>. \n However, inner contents of the data is not updated compared to previous step.", "yellow")
         # asset_data update ==> decorator_run에서 다음 step으로 넘겨주는데 사용됨
         self.asset_data = data
         
@@ -190,7 +190,7 @@ class Asset:
             self._asset_error("Failed to save_config(). only << dict >> type is supported for the function argument.")
         # 사용자가 특정 asset에서 config 변경 없이 그냥 바로 다음 step으로 넘겨버리는 경우 
         if self.asset_config == config: 
-            print_color("[NOTICE] You called << self.asset.save_config() >>. \n However, inner contents of the config is not updated comparted to previous step.", "green")
+            print_color("[NOTICE] You called << self.asset.save_config() >>. \n However, inner contents of the config is not updated compared to previous step.", "yellow")
         # asset_config update ==> decorator_run에서 다음 step으로 넘겨주는데 사용됨
         self.asset_config = config 
     
@@ -422,41 +422,7 @@ class Asset:
     ##################################################################################################################################################################
     
     ##################################################################################################################################################################
-        
-#######################################
-
-
-    def load_data(self, step = None):
-        """ Description
-            -----------
-                - Asset 의 이전 step 에서 생성한 데이터를 가져온다.
-            Parameters
-            -----------
-                - option
-                  - step (str) : 특정 Asset 에서 생성한 데이터를 가져한다.
-            Return
-            -----------
-                - data (dict)
-            Example
-            -----------
-                - previous_dict = load_data()
-                - preprocess_dict = load_data(step='preprocess')
-        """
-
-        data_in_file = 'none'
-        in_data = 'none'
-
-        # 이전 asset 의 데이터를 가져온다.
-        if step == None:
-            data_in_file = self.asset_envs['data_in_file']
-        # 특정 asset 의 데이터를 가져온다.
-        else:
-            data_in_file = self._get_data_in_file(step, self.context['system']['pipeline'])
-
-        in_data = self.load_file(data_in_file)
-
-        return in_data
-
+    
 
     def decorator_run(func):
         def _run(self, *args, **kwargs):
@@ -494,191 +460,10 @@ class Asset:
         return _run
 
 
-    # def save_config(self, data, step):
-    #     """ Description
-    #         -----------
-    #             - Workflow 운영에 필요한 Asset config 를 저장한다.
-    #         Parameters
-    #         -----------
-    #             - data (dict) : config 에 저장할 데이터
-    #             - conf (str) : config의 종류 ('config')
-    #                            config : 모델컨덕터 워크플로어 운영 설정 값
-    #         Return
-    #         -----------
-    #             - None
-    #         Example
-    #         -----------
-    #             - save_config(data, 'config')
-    #     """
-
-    #     if not isinstance(data, dict):
-    #         raise TypeError("지원하지 않는 데이터 타입입니다. (only dictionary)")
-
-    #     self.asset_config[step] = data
-
-    #     # if conf == 'config':
-    #     #     self._set_context(data)
-    #     # else:
-    #     #     raise ValueError("지원하지 않는 config 타입입니다. (choose : 'config')")
-
-
-    def check_record_file(self):
-        if self.metadata._get_artifact(self.asset_envs['step_name'], 'output')['file'] == []:
-            self.save_warning('tfrecord 파일이 비었습니다')
-        else:
-            pass
-
-
-    def save_metadata(self, filename, type):
-        """ Description
-            -----------
-                - Asset 에서 저장한 데이터를 Artifact에 기록한다.
-            Parameters
-            -----------
-                - filename (str) : 저장한 데이터의 파일이름(경로 포함)
-                - type (str) : input 또는 output
-            Example
-            -----------
-                - save_metadata(filename, 'output')
-        """
-        
-        if not type in ('input', 'output'):
-            raise ValueError("type 은 'input' 또는 'output' 입니다.")
-
-        self.metadata._set_artifact(filename, type)
-
-
-    def load_file(self, _data_file, _print=True):
-        """ Description
-            -----------
-                - 파일을 로하하여 데이터로 가져온다.
-            Parameters
-            -----------
-                - data_file (str) : 로드할 데이터의 파일이름 (경로 포함)
-                                   (확장자 지원 : csv, h5, tfrecord, pkl, json, params, log)
-                - option
-                  - _print (bool) : 데이터 저장여부 출력
-            Return
-            -----------
-                - data (csv) : dataframe
-                       (tfreocrd, pkl, json, params, log) : dictionary
-            Example
-            -----------
-                - data = load_file(data_file)
-        """
- 
-        _data = 'none'
-
-        # file != 'none'
-        if _data_file != 'none':
-            try:
-                # if _data_file.lower().endswith('.csv'):
-                #     _data = pd.read_csv(_data_file, engine='python')
-                # elif _data_file.lower().endswith('.h5'):
-                #     _data = tf.keras.models.load_model(_data_file)
-                # elif _data_file.lower().endswith('.tfrecord'):
-                #     _data = self.tfrecord.load(_data_file)
-                # elif _data_file.lower().endswith('.pkl'):
-                if _data_file.lower().endswith('.pkl'):
-                    with open(_data_file, 'rb') as f:
-                        _data = pickle.load(f)
-                elif _data_file.lower().endswith('.json') or \
-                     _data_file.lower().endswith('.params') or \
-                     _data_file.lower().endswith('.log'):
-                    with open(_data_file, 'r') as f:
-                        _data = json.load(f)
-                else:
-                    raise TypeError('No Support file format (support : csv, h5, tfrecord, pkl, json, params, log)')
-                    _print=False
-                if _print == True:
-                    print('Loaded : {}'.format(_data_file))
-                else:
-                    pass
-            except FileNotFoundError: 
-                raise ValueError('File Not Found : {}'.format(_data_file))
-            except AttributeError:
-                # tfrecord를 제작할 때 사용한 pandas 버전과 다른 경우 발생
-                raise ValueError('tfrecord error : 로드하려는 tfrecord에서 사용된 pandas 버전과 설치된 pandas 버전이 다릅니다.')
-            except:
-                raise ValueError('File Data Error : {}'.format(_data_file))
-        else:
-            pass
-        #  파일 로드 성공 : artifact 에 기록
-        # self.metadata._set_artifact(_data_file, 'input')
-
-        return _data
-
-    def save_file(self, _data, _data_file, _print=True):
-        """ Description
-            -----------
-                - 데이터를 파일로 저장한다.
-            Parameters
-            -----------
-                - data : 파일로 저장할 데이터
-                         (csv) : dataframe
-                         (h5) : tensorflow.keras.Sequential
-                         (tfreocrd, pkl, json, params, log) : dictionary
-                - data_file (str) : 저장할 데이터의 파일이름 (경로 포함)
-                                   (확장자 지원 : csv, tfrecord, pkl, json, params, log)
-                - option
-                  - _print (bool) : 데이터 저장여부 출력
-            Example
-            -----------
-                - save_file(data, data_file)
-        """
-
-        # file != 'none' and data != 'none'
-        if _data_file != 'none' and not (isinstance(_data, str) and _data == 'none') and len(_data) > 0:
-            try:
-                check_path(_data_file)
-                # if _data_file.lower().endswith('.csv'):
-                #     if isinstance(_data, pd.DataFrame):
-                #         _data.to_csv(_data_file, index=False)
-                #     else:
-                #         raise TypeError(f'need DataFrame format (your data format : {type(_data)})')
-                # elif _data_file.lower().endswith('.h5'):
-                #     if isinstance(_data, tf.keras.Sequential):
-                #         _data.save(_data_file)
-                #     else:
-                #         raise TypeError(f'need tensorflow.keras.Sequential format (your data format : {type(_data)})')
-                # elif _data_file.lower().endswith('.tfrecord'):
-                #     if isinstance(_data, dict):
-                #         self.tfrecord.save(_data, _data_file)
-                #     else:
-                #         raise TypeError(f'need dictionary format (your data format : {type(_data)})')
-                # elif _data_file.lower().endswith('.pkl'):
-                if _data_file.lower().endswith('.pkl'):
-                    with open(_data_file, "wb") as f:
-                        pickle.dump(_data, f)
-                elif _data_file.lower().endswith('.json') or \
-                     _data_file.lower().endswith('.params') or \
-                     _data_file.lower().endswith('.log'):
-                    with open(_data_file, "w") as f:
-                        # ensure_ascii=False : 한글 지원
-                        json.dump(_data, f, indent=4, ensure_ascii=False)
-                else:
-                    raise TypeError('No Support file format (support : csv, h5, tfrecord, pkl, json, params, log)')
-                    _print=False
-                if _print == True:
-                    _msg = f'Saved : {_data_file}'
-                    #self.asset_aip_info(Type.DATASAVE, SubType.FILEMAKE,_msg)
-                    print(_msg)
-                else:
-                    pass
-            # Tfrecord Error
-            except TypeError as e:
-                raise TypeError(str(e))
-            except:
-                raise ValueError('Failed to save : {}'.format(_data_file))
-            # 파일 저장 성공 : artifact 에 기록
-            # self.metadata._set_artifact(_data_file, 'output')
-        else:
-            pass
-
     def save_log(self, msg):
         """ Description
             -----------
-                - Asset에서 필요한 정보를 저장한다.
+                - User Asset에서 필요한 정보를 저장한다.
             Parameters
             -----------
                 - msg (str) : 저장할 문자열 (max length : 255)
@@ -686,11 +471,9 @@ class Asset:
             -----------
                 - save_log('hello')
         """
-
         if not isinstance(msg, str):
-            raise ValueError("지원하지 않는 데이터 타입입니다. (only string)")
-
-        self.metadata._set_log(msg, self.context['metadata_table_version']['log'], 'info')
+            self._asset_error(f"Failed to save_log(). Only support << str >> type for the argument. \n You entered: {msg}")
+        print_color(f'[LOG]{msg}', 'yellow')
 
     def save_warning(self, msg):
         """Description
@@ -705,11 +488,29 @@ class Asset:
         """
 
         if not isinstance(msg, str):
-            raise ValueError("지원하지 않는 데이터 타입입니다. (only string)")
+            self._asset_error(f"Failed to save_warning(). Only support << str >> type for the argument. \n You entered: {msg}")
 
-        print_color(f'[warning]{msg}')
-        # self.metadata._set_log(msg, self.context['metadata_table_version']['log'], 'warning')
+        print_color(f'[WARNING]{msg}', 'yellow')
 
+
+    def save_error(self, msg):
+        """Description
+            -----------
+                - Asset에서 필요한 정보를 저장한다.
+            Parameters
+            -----------
+                - msg (str) : 저장할 문자열 (max length : 255)
+            Example
+            -----------
+                - save_warning('hello')
+        """
+
+        if not isinstance(msg, str):
+            self._asset_error(f"Failed to save_warning(). Only support << str >> type for the argument. \n You entered: {msg}")
+
+        print_color(f'[ERROR]{msg}', 'yellow')
+        
+        
     def check_args(self, arg_key, is_required=False, default="", chng_type="str" ):
         """ Description
             -----------
@@ -756,21 +557,6 @@ class Asset:
 
         return arg_value
 
-    def make_group_by(self, df, group_cnt, group_keys, keys):
-        ## group단위 dataframe 인 partial_df 생성하기
-        if group_cnt == 3:
-            partial_df = df[(df[group_keys[0]] == keys[0]) & (df[group_keys[1]] == keys[1]) &
-                        (df[group_keys[2]] == keys[2])].reset_index(drop=True)
-        elif group_cnt == 2:
-            partial_df = df[(df[group_keys[0]] == keys[0]) &
-                            (df[group_keys[1]] == keys[1])].reset_index(drop=True)
-        elif group_cnt == 1 or group_cnt == 0 :
-            partial_df = df[(df[group_keys[0]] == keys[0])].reset_index(drop=True)
-        else:
-            ## groupby 는 최대 3개 column 까지 지원합니다. column 갯수 별로 코드가 달라져야 합니다.
-            return ValueError(f'group_key: {group_keys} has a maximum value of 3. The current value is: {group_cnt}')
-
-        return partial_df
         
 # --------------------------------------------------------------------------------------------------------------------------
 #    COMMON FUNCTION
@@ -825,22 +611,21 @@ class Asset:
         if self.debug_mode == True:
             print_color(f"DEBUG MODE   : TRUE", 'red')
         print_color(f"TIME(UTC)    : {time_utc} (KST : {time_kst})", 'red')
-        # print_color(f"PIPELINES    : {self.asset_envs['pipeline']}", 'red')
-        # print_color(f"ASSETS     : {self.asset_envs['step']}", 'red')
+        print_color(f"PIPELINES    : {self.asset_envs['pipeline']}", 'red')
+        print_color(f"ASSETS     : {self.asset_envs['step']}", 'red')
         print_color(f"ERROR(msg)   : {msg}", 'red')
         print_color("=======================================================================", 'red')
         print('\n\n')
 
         raise ValueError(msg)
 
-
-    # NOTE
+    # FIXME _check_arguments 개발 및 테스트필요 
     # log 로 저장되는 value(key:value) 는 빈칸의 값을 가질 수 없다 -> splunk 에러
     def _check_arguments(self, args):
         for key, value in args.items():
             # key 길이를 체크한다. (모델컨덕터 기준)
             if len(key) > ARG_NAME_MAX_LENGTH:
-                raise ValueError("arg의 길이는 {}이하입니다. arg [{}]".format(ARG_NAME_MAX_LENGTH, key))
+                self._asset_error("Length of arg. must be shorter than: \n arg. << {} >>".format(ARG_NAME_MAX_LENGTH, key))
       
             # 괄호를 사용했는지 확인한다.
             # ${env(project_home)} <- env 로 사용한 괄호 제외
@@ -848,14 +633,14 @@ class Asset:
                 pass
             else:
                 if '(' in value:
-                    raise ValueError("arg의 값에 괄호를 사용할 수 없습니다. arg [{}]".format(key))
+                    self._asset_error("Cannot use << ( >> or << ) >> in ther arg. : \n arg. << {} >> ".format(key))
 
             # ${env(project_home)} <- env 로 사용한 괄호 제외
             if ')}' in value:
                 pass
             else:
                 if ')' in value:
-                    raise ValueError("arg의 값에 괄호를 사용할 수 없습니다. arg [{}]".format(key))
+                    self._asset_error("Cannot use << ( >> or << ) >> in ther arg. : \n arg. << {} >> ".format(key))
 
             # path 가 포함된키 : 맨 마지막에 / 가 있는지 확인한다.
             if 'path' in key:
@@ -867,7 +652,7 @@ class Asset:
 
                 for val in values:
                     if len(val) == 0 or val[-1] != '/':
-                        raise ValueError("'path'가 포함된 arg의 값 마지막은 \'/\' 이어야합니다. arg [{}]".format(key))
+                        raise ValueError("arg. with ''path'' must finish with the character << / >>: \n arg. << {} >>".format(key))
                     else:
                         pass
             else:

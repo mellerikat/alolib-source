@@ -68,7 +68,7 @@ def display_version(_class_name, _path):
     print('='*70)
     print('\n\n')
 
-
+    
 def get_latest_tag(_path):
     """ Description
         -----------
