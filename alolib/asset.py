@@ -1,9 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import os
-import json
-import pickle
-
+import pkg_resources 
 from datetime import datetime
 from pytz import timezone
 
@@ -35,17 +33,12 @@ COLOR_END = '\033[0m'
 #--------------------------------------------------------------------------------------------------------------------------
 #    CLASS
 #--------------------------------------------------------------------------------------------------------------------------
-# TODO 참고로 코드 상에 '/' 같은 경로를 쓰는건 docker 기반이고 linux 환경만 감안하기 때문. (윈도우의 '\\' 같은건 비허용)
+
 class Asset:
     # def __init__(self, envs, argv, version='None'):
     def __init__(self, asset_structure):
         self.asset = self
-        
-        self.context = {}
-        
-        self.debug_mode = False
-        ##########################
-        # FIXME input 폴더는 external_path 데이터 가져올 때 초기화 돼야한다. 
+
         self.artifacts_structure = {
             'input': {}, 
             '.train_artifacts': {
@@ -63,19 +56,21 @@ class Asset:
             '.asset_interface': {},
             '.history': {}
         }
-        #self.supported_extension = [".joblib", ".pkl", ".pt", ".json", ".h5"] #지원되는 확장자 관리 
-        ##########################
-        # 1. set envs
-        ##########################
+        # FIXME 추후 alo 이름 변경 필요? 
+        self.alolib_version = pkg_resources.get_distribution('alolib').version  
+        # 1. set envs, args, data, config .. 
         try:
             self.asset_envs = asset_structure.envs
+            self.alo_version = self.asset_envs['alo_version']
+            self.asset_branch = self.asset_envs['asset_branch']
+            
             self.asset_args = asset_structure.args
             self.asset_data = asset_structure.data
             self.asset_config = asset_structure.config
-            self.asset_version =self.asset_envs['version']
+
         except Exception as e:
             self._asset_error(str(e))
-        # 현재 PROJECT PATH 보다 한 층 위 folder 
+        # 현재는 PROJECT PATH 보다 한 층 위 folder에서 실행 중 
         self.project_home = self.asset_envs['project_home']
         # FIXME  사용자 api 에서 envs 를 arguments로 안받기 위해 artifacts 변수 생성 
         self.asset_envs["artifacts"] = self.asset_envs["artifacts"]
@@ -83,13 +78,9 @@ class Asset:
         self.input_data_home = self.project_home + "input/"
         # asset 코드들의 위치
         self.asset_home = self.project_home + "assets/"
-        # 2. METADATA : NOTE 위치 중요(envs 를 활용한다.)
 
-        # 3. set context properties
-        current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        os.environ['INFTIME'] = current_time
-
-        # 4. logging conifg (ref. : https://www.daleseo.com/python-logging-config/)
+        # 2. logging conifg 
+        # (ref. : https://www.daleseo.com/python-logging-config/)
         self.logging_config = { 
                 "version": 1,
                 "formatters": {
@@ -114,39 +105,7 @@ class Asset:
                 "root": {"handlers": ["console", "file"], "level": "INFO"},
                 "loggers": {"ERROR": {"level": "ERROR"}, "WARNING": {"level": "WARNING"}, "INFO": {"level": "INFO"}},
             }
-        # try:
-        #     # 4. set argv
-        #     self.asset_args = argv#self._set_arguments(argv)
-        #     # 5. check arg
-        #     # 개발 필요 230913 swj
-        #     # self._check_arguments(self.asset_args)
 
-        #     # 6. update envs : NOTE 위치 중요 (self.context 와 self.metadata를 활용한다.)
-
-        #     # 6. update asset information : version, args
-        #     # 개발 필요 230913 swj
-        #     # self._set_asset_information()
-
-        #     # 8. Tfrecord
-
-        #     # 9. 처음실행되는 step 에서 확인
-        #     # 폴더 생성 개발 필요
-        #     # if self.context['system']['last_step'] == 'none':
-        #     #     check_path(self.asset_envs['input_path'])
-        #     #     check_path(self.asset_envs['metadata_path'])
-        #     #     check_path(self.asset_envs['output_path'])
-        #     #     check_path(self.asset_envs['train_path'])
-        #     #     check_path(self.asset_envs['inference_path'])
-        #     #     check_path(self.asset_envs['interface_path'])
-                
-        #     #     check_path(self.asset_envs['temp_path'])
-        #     #     check_path(self.asset_envs['storage_path'])
-        #     #     check_path(self.asset_envs['model_path'])
-
-        #     # self._asset_info()
-        # except Exception as e:
-        #     self._asset_error(str(e))
-    
 ##################################################################################################################################################################
     #                                                                           Slave API
     ##################################################################################################################################################################
@@ -216,7 +175,7 @@ class Asset:
             self._asset_error("Failed to save_data(). only << dict >> type is supported for the function argument.")
         # 사용자가 특정 asset에서 data 변경 없이 그냥 바로 다음 step으로 넘겨버리는 경우 
         if self.asset_data == data: 
-            print_color("[NOTICE] You called << self.asset.save_data() >>. \n However, inner contents of the data is not updated compared to previous step.", "yellow")
+            self.print_color("[NOTICE] You called << self.asset.save_data() >>. \n However, inner contents of the data is not updated compared to previous step.", "yellow")
         # asset_data update ==> decorator_run에서 다음 step으로 넘겨주는데 사용됨
         self.asset_data = data
         
@@ -225,7 +184,7 @@ class Asset:
             self._asset_error("Failed to save_config(). only << dict >> type is supported for the function argument.")
         # 사용자가 특정 asset에서 config 변경 없이 그냥 바로 다음 step으로 넘겨버리는 경우 
         if self.asset_config == config: 
-            print_color("[NOTICE] You called << self.asset.save_config() >>. \n However, inner contents of the config is not updated compared to previous step.", "yellow")
+            self.print_color("[NOTICE] You called << self.asset.save_config() >>. \n However, inner contents of the config is not updated compared to previous step.", "yellow")
         # asset_config update ==> decorator_run에서 다음 step으로 넘겨주는데 사용됨
         self.asset_config = config 
     
@@ -296,7 +255,7 @@ class Asset:
         summary_data = {
             'result': result,
             'score': round(score, 2), # 소수 둘째자리
-            'date': os.environ['INFTIME'], # UTC TIME 
+            'date':  datetime.now(timezone('UTC')).strftime('%Y-%m-%d %H:%M:%S'), 
             # FIXME note에 input file 명 전달할 방법 고안 필요 
             'note': note,
             'probability': make_addup_1(probability)
@@ -379,7 +338,7 @@ class Asset:
                     
         # trian 땐 없으면 폴더 생성 
         os.makedirs(model_path, exist_ok=True) # exist_ok =True : 이미 존재하면 그대로 둠 
-        print_color(f">> Successfully got model path for saving or loading your AI model: \n {model_path}", "green")
+        self.print_color(f">> Successfully got model path for saving or loading your AI model: \n {model_path}", "green")
         
         return model_path
 
@@ -417,7 +376,7 @@ class Asset:
             output_path = self.asset_envs["artifacts"][".inference_artifacts"] + f"output/{current_step_name}/"
             os.makedirs(output_path, exist_ok=True)
             
-        print_color(f">> Successfully got << output path >> for saving your data into csv or jpg file: \n {output_path} \n L [NOTE] ""The names of output file must be fixed as << output.csv, output.jpg >>"" ", "green")
+        self.print_color(f">> Successfully got << output path >> for saving your data into csv or jpg file: \n {output_path} \n L [NOTE] ""The names of output file must be fixed as << output.csv, output.jpg >>"" ", "green")
         
         return output_path
 
@@ -449,7 +408,7 @@ class Asset:
         os.makedirs(report_path, exist_ok=True) # exist_ok =True : 이미 존재하면 그대로 둠 
 
         report_path  = report_path
-        print_color(f">> Successfully got << report path >> for saving your << report.html >> file: \n {report_path}", "green")
+        self.print_color(f">> Successfully got << report path >> for saving your << report.html >> file: \n {report_path}", "green")
         
         return report_path
     
@@ -458,28 +417,22 @@ class Asset:
     
     ##################################################################################################################################################################
     
-
+    
     def decorator_run(func):
         def _run(self, *args, **kwargs):
-
-            print('************************************************************')
-            # print(f'\t{self.asset_envs["step_name"]} -> run')
-            print('************************************************************')
-            # print(self.metadata._get_artifact(self.asset_envs["step_name"], 'info')['version'])
-
             try:
-                #METADATA
-                # self.metadata._set_execution('RUNNING')
                 step = self.asset_envs["step"]
                 try:
                     prev_data, prev_config = self.asset_data, self.asset_config 
+                    # print asset info. 
+                    self._asset_info() 
                     # run user asset 
                     func(self, *args, **kwargs)
                     # check whether data & config are updated
                     if prev_data != self.asset_data:
-                        print_color(f"Successfully updated the data @ << {step} >> step", "green")
+                        self.print_color(f"Successfully updated the data @ << {step} >> step", "green")
                     if prev_config != self.asset_config: 
-                        print_color(f"Successfully updated the config @ << {step} >> step", "green")
+                        self.print_color(f"Successfully updated the config @ << {step} >> step", "green")
                         
                     #if not isinstance(self.output, dict) or not isinstance(config, dict):
                     if not isinstance( self.asset_data, dict) or not isinstance(self.asset_config, dict):
@@ -580,7 +533,7 @@ class Asset:
                 # arg_value         = self.asset_args[arg_key]
                 arg_value = self.asset_args[arg_key] if self.asset_args[arg_key] is not None else ""
             except:
-                raise KeyError('Not found args [{}]'.format(arg_key))
+                self._asset_error('>> Not found args [{}]'.format(arg_key))
         else:
             try:
                 # arg_value         = self.asset_args[arg_key]
@@ -605,7 +558,7 @@ class Asset:
 #    COMMON FUNCTION
 # --------------------------------------------------------------------------------------------------------------------------
 
-    def print_color(msg, _color):
+    def print_color(self, msg, _color):
         """ Description
             -----------
                 Display text with color 
@@ -654,75 +607,34 @@ class Asset:
 # --------------------------------------------------------------------------------------------------------------------------
 #    MODEL CONDUCTOR FUNCTION
 # --------------------------------------------------------------------------------------------------------------------------
-    # legacy 
-    def _asset_info(self):
-        print('\n')
-        print_color("========================== ASSET INFORMATION ==========================", 'blue')
-        if self.debug_mode == True:
-            print_color(f"DEBUG MODE   : TRUE", 'red')
-        print_color(f"TIME(KST)    : {datetime.now(timezone('Asia/Seoul')).strftime('%Y-%m-%d %H:%M:%S')}", 'blue')
-        print_color(f"WORKSPACE    : {self.asset_envs['workspace_name']}", 'blue')
-        print_color(f"PROJECT      : {self.asset_envs['project_name']}", 'blue')
-        print_color(f"WORKFLOW     : {self.asset_envs['workflow_name']}", 'blue')
-        print_color(f"WORKFLOW KEY : {self.asset_envs['workflow_key']}", 'blue')
-        print_color(f"ASSET NAME   : {self.asset_envs['step_name']}", 'blue')
-        print_color(f"asset ver.   : {self.asset_envs['asset_version']}", 'blue')
-        print_color(f"aiplib ver.  : {self.asset_envs['aiplib_version']}", 'blue')
-        print_color(f"aiptfx ver.  : {self.asset_envs['aiptfx_version']}", 'blue')
-        print_color("=======================================================================", 'blue')
-        print('\n')
- 
     def _asset_error(self, msg):
         time_utc = datetime.now(timezone('UTC')).strftime('%Y-%m-%d %H:%M:%S')
-        time_kst = datetime.now(timezone('Asia/Seoul')).strftime('%Y-%m-%d %H:%M:%S')
-        print('\n\n')
-        print_color("============================= ASSET ERROR =============================", 'red')
-        if self.debug_mode == True:
-            print_color(f"DEBUG MODE   : TRUE", 'red')
-        print_color(f"TIME(UTC)    : {time_utc} (KST : {time_kst})", 'red')
-        print_color(f"PIPELINES    : {self.asset_envs['pipeline']}", 'red')
-        print_color(f"ASSETS     : {self.asset_envs['step']}", 'red')
-        print_color(f"ERROR(msg)   : {msg}", 'red')
-        print_color("=======================================================================", 'red')
-        print('\n\n')
+        # time_kst = datetime.now(timezone('Asia/Seoul')).strftime('%Y-%m-%d %H:%M:%S')
+        print('\n')
+        self.print_color("============================= ASSET ERROR =============================", 'red')
+        #self.print_color(f"TIME(UTC)    : {time_utc} (KST : {time_kst})", 'red')
+        self.print_color(f"TIME(UTC)    : {time_utc}", 'red')
+        self.print_color(f"PIPELINE    : {self.asset_envs['pipeline']}", 'red')
+        self.print_color(f"STEP     : {self.asset_envs['step']}", 'red')
+        self.print_color(f"ERROR(msg)   : {msg}", 'red')
+        self.print_color("=======================================================================", 'red')
+        print('\n')
 
         raise ValueError(msg)
+    
+            
+    def _asset_info(self):
+        print('\n')
+        self.print_color("========================== ASSET INFORMATION ==========================", 'blue')
+        self.print_color(f"time (UTC)    : {datetime.now(timezone('UTC')).strftime('%Y-%m-%d %H:%M:%S')}", 'blue')
+        self.print_color(f"current step   : {self.asset_envs['step']}", 'blue')
+        self.print_color(f"asset branch.   : {self.asset_branch}", 'blue')
+        self.print_color(f"alolib ver.  : {self.alolib_version}", 'blue')
+        self.print_color(f"alo ver.  : {self.alo_version}", 'blue')
+        self.print_color(f"current envs.   : {self.asset_envs}", 'blue')
+        self.print_color(f"current args.   : {self.asset_args}", 'blue')
+        self.print_color(f"current config.   : {self.asset_config}", 'blue')
+        self.print_color(f"current data keys  : {self.asset_data.keys()}", 'blue')
+        self.print_color("=======================================================================", 'blue')
+        print('\n')
 
-    # FIXME _check_arguments 개발 및 테스트필요 
-    # log 로 저장되는 value(key:value) 는 빈칸의 값을 가질 수 없다 -> splunk 에러
-    def _check_arguments(self, args):
-        for key, value in args.items():
-            # key 길이를 체크한다. (모델컨덕터 기준)
-            if len(key) > ARG_NAME_MAX_LENGTH:
-                self._asset_error("Length of arg. must be shorter than: \n arg. << {} >>".format(ARG_NAME_MAX_LENGTH, key))
-      
-            # 괄호를 사용했는지 확인한다.
-            # ${env(project_home)} <- env 로 사용한 괄호 제외
-            if 'env(' in value:
-                pass
-            else:
-                if '(' in value:
-                    self._asset_error("Cannot use << ( >> or << ) >> in ther arg. : \n arg. << {} >> ".format(key))
-
-            # ${env(project_home)} <- env 로 사용한 괄호 제외
-            if ')}' in value:
-                pass
-            else:
-                if ')' in value:
-                    self._asset_error("Cannot use << ( >> or << ) >> in ther arg. : \n arg. << {} >> ".format(key))
-
-            # path 가 포함된키 : 맨 마지막에 / 가 있는지 확인한다.
-            if 'path' in key:
-                # list
-                if isinstance(value, list):
-                    values = value
-                else:
-                    values = [value]
-
-                for val in values:
-                    if len(val) == 0 or val[-1] != '/':
-                        raise ValueError("arg. with ''path'' must finish with the character << / >>: \n arg. << {} >>".format(key))
-                    else:
-                        pass
-            else:
-                pass
