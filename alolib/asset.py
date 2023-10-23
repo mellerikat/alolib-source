@@ -9,10 +9,6 @@ from pytz import timezone
 
 # FIXME # DeprecationWarning: pkg_resources is deprecated as an API. 해결 필요? 
 import yaml
-
-from alolib.common import * 
-from alolib.exception import print_color
-
 import logging
 import logging.config 
 #--------------------------------------------------------------------------------------------------------------------------
@@ -23,6 +19,19 @@ COLOR_END = '\033[0m'
 
 ARG_NAME_MAX_LENGTH = 30
 
+COLOR_DICT = {
+   'PURPLE':'\033[95m',
+   'CYAN':'\033[96m',
+   'DARKCYAN':'\033[36m',
+   'BLUE':'\033[94m',
+   'GREEN':'\033[92m',
+   'YELLOW':'\033[93m',
+   'RED':'\033[91m',
+   'BOLD':'\033[1m',
+   'UNDERLINE':'\033[4m',
+}
+
+COLOR_END = '\033[0m'
 #--------------------------------------------------------------------------------------------------------------------------
 #    CLASS
 #--------------------------------------------------------------------------------------------------------------------------
@@ -50,7 +59,6 @@ class Asset:
                 'score': {},
                 'output': {},
                 'log': {},
-                'report': {}
             },
             '.asset_interface': {},
             '.history': {}
@@ -554,7 +562,6 @@ class Asset:
 
             Parameters
             -----------
-                args (dict) : Asset self.args 
                 arg_key (str) : 사용자 라미미터 이름 
                 is_required (bool) : 필수 존재 여부 
                 default (str) : 사용자 파라미터가 존재하지 않을 경우, 강제로 입력될 값
@@ -562,11 +569,11 @@ class Asset:
 
             Return
             -----------
-                the replaced string
+                arg_value (the replaced string)
 
             Example
             -----------
-                replace_pattern(_str, 'inference', 'train', -1)
+                x_columns  = self.asset.check_args(arg_key="x_columns", is_required=True, chng_type="list")
         """
         if is_required:
             try:
@@ -598,6 +605,32 @@ class Asset:
 #    COMMON FUNCTION
 # --------------------------------------------------------------------------------------------------------------------------
 
+    def print_color(msg, _color):
+        """ Description
+            -----------
+                Display text with color 
+
+            Parameters
+            -----------
+                msg (str) : text
+                _color (str) : PURPLE, CYAN, DARKCYAN, BLUE, GREEN, YELLOW, RED, BOLD, UNDERLINE
+
+            example
+            -----------
+                print_color('Display color text', 'BLUE')
+        """
+        
+        def _check_string(_value): # inner function 
+            if type(_value) != str:
+                raise ValueError('only string type')
+        _check_string(msg)
+        _check_string(_color)
+    
+        if _color.upper() in COLOR_DICT.keys():
+            print(COLOR_DICT[_color.upper()]+msg+COLOR_END)
+        else:
+            raise ValueError('Select color : {}'.format(COLOR_DICT.keys()))
+        
     def _convert_variable_type(self, variable, target_type):
         if not isinstance(target_type, str) or target_type.lower() not in ["str", "int", "float", "list", "bool"]:
             raise ValueError("Invalid target_type. Allowed values are 'str', 'int', 'float', and 'list'.")
@@ -621,7 +654,7 @@ class Asset:
 # --------------------------------------------------------------------------------------------------------------------------
 #    MODEL CONDUCTOR FUNCTION
 # --------------------------------------------------------------------------------------------------------------------------
-    
+    # legacy 
     def _asset_info(self):
         print('\n')
         print_color("========================== ASSET INFORMATION ==========================", 'blue')
