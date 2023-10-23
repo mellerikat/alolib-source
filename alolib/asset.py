@@ -424,8 +424,8 @@ class Asset:
                 step = self.asset_envs["step"]
                 try:
                     prev_data, prev_config = self.asset_data, self.asset_config 
-                    # print asset info. 
-                    self._asset_info() 
+                    # print asset start info. 
+                    self._asset_start_info() 
                     # run user asset 
                     func(self, *args, **kwargs)
                     # check whether data & config are updated
@@ -444,6 +444,8 @@ class Asset:
                 # self._set_context_system()
             except Exception as e:
                 self._asset_error(str(e))
+            # print asset finish info.
+            self._asset_finish_info(self.asset_data.keys(), self.asset_config)
             return self.asset_data, self.asset_config  #self.output, config
         return _run
 
@@ -623,18 +625,28 @@ class Asset:
         raise ValueError(msg)
     
             
-    def _asset_info(self):
+    def _asset_start_info(self):
         print('\n')
-        self.print_color("========================== ASSET INFORMATION ==========================", 'blue')
-        self.print_color(f"time (UTC)    : {datetime.now(timezone('UTC')).strftime('%Y-%m-%d %H:%M:%S')}", 'blue')
-        self.print_color(f"current step   : {self.asset_envs['step']}", 'blue')
-        self.print_color(f"asset branch.   : {self.asset_branch}", 'blue')
-        self.print_color(f"alolib ver.  : {self.alolib_version}", 'blue')
-        self.print_color(f"alo ver.  : {self.alo_version}", 'blue')
-        self.print_color(f"current envs.   : {self.asset_envs}", 'blue')
-        self.print_color(f"current args.   : {self.asset_args}", 'blue')
-        self.print_color(f"current config.   : {self.asset_config}", 'blue')
-        self.print_color(f"current data keys  : {self.asset_data.keys()}", 'blue')
+        self.print_color("============================= ASSET START =============================", 'blue')
+        self.print_color(f"- time (UTC)    : {datetime.now(timezone('UTC')).strftime('%Y-%m-%d %H:%M:%S')}", 'blue')
+        self.print_color(f"- current step   : {self.asset_envs['step']}", 'blue')
+        self.print_color(f"- asset branch.   : {self.asset_branch}", 'blue')
+        self.print_color(f"- alolib ver.  : {self.alolib_version}", 'blue')
+        self.print_color(f"- alo ver.  : {self.alo_version}", 'blue')
+        self.print_color(f"- load envs.   : {self.asset_envs}", 'blue')
+        self.print_color(f"- load args.   : {self.asset_args}", 'blue')
+        self.print_color(f"- load config.   : {self.asset_config}", 'blue')
+        self.print_color(f"- load data keys  : {self.asset_data.keys()}", 'blue')
         self.print_color("=======================================================================", 'blue')
         print('\n')
 
+
+    def _asset_finish_info(self, data_keys, config): 
+        print('\n')
+        self.print_color("============================= ASSET FINISH ============================", 'blue')
+        self.print_color(f"- time (UTC)    : {datetime.now(timezone('UTC')).strftime('%Y-%m-%d %H:%M:%S')}", 'blue')
+        self.print_color(f"- current step   : {self.asset_envs['step']}", 'blue')
+        self.print_color(f"- save config.   : {config}", 'blue')
+        self.print_color(f"- save data keys  : {data_keys}", 'blue')
+        self.print_color("=======================================================================", 'blue')
+        print('\n')
