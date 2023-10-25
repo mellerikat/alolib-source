@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 import subprocess
 import re
 
-result = subprocess.run(['git', 'branch', '--show-current'], stdout=subprocess.PIPE)
+result = subprocess.run(['git', 'symbolic-ref', '--short', 'HEAD'], stdout=subprocess.PIPE)
 branch = result.stdout.decode('utf-8').strip()
 
 if branch == 'develop':
