@@ -1,4 +1,14 @@
 from setuptools import setup, find_packages
+import subprocess
+import re
+
+result = subprocess.run(['git', 'branch', '--show-current'], stdout=subprocess.PIPE)
+branch = result.stdout.decode('utf-8').strip()
+
+if branch == 'develop':
+    version = 'develop'
+else:
+    version = re.search(r'release-(\d+\.\d+)', branch).group(1)
 
 # requirements.txt 파일을 읽고 install_requires를 설정
 with open('requirements.txt', 'r') as file:
@@ -16,7 +26,7 @@ for req in requirements:
 
 setup(
     name='alolib',
-    version='0.1',
+    version=version,
     author='wonjun.sung',
     author_email='wonjun.sung@lge.com',
     packages=find_packages('.'),
