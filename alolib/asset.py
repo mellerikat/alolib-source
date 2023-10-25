@@ -174,8 +174,9 @@ class Asset:
         if not isinstance(data, dict):
             self._asset_error("Failed to save_data(). only << dict >> type is supported for the function argument.")
         # 사용자가 특정 asset에서 data 변경 없이 그냥 바로 다음 step으로 넘겨버리는 경우 
-        if self.asset_data == data: 
-            self.print_color("[NOTICE] You called << self.asset.save_data() >>. \n However, inner contents of the data is not updated compared to previous step.", "yellow")
+        # FIXME : data dict 내에 dataframe 있으면 ValueError: Can only compare identically-labeled DataFrame objects 에러 발생 가능성 존재 
+        # if self.asset_data == data: 
+        #     self.print_color("[NOTICE] You called << self.asset.save_data() >>. \n However, inner contents of the data is not updated compared to previous step.", "yellow")
         # asset_data update ==> decorator_run에서 다음 step으로 넘겨주는데 사용됨
         self.asset_data = data
         
@@ -183,8 +184,9 @@ class Asset:
         if not isinstance(config, dict):
             self._asset_error("Failed to save_config(). only << dict >> type is supported for the function argument.")
         # 사용자가 특정 asset에서 config 변경 없이 그냥 바로 다음 step으로 넘겨버리는 경우 
-        if self.asset_config == config: 
-            self.print_color("[NOTICE] You called << self.asset.save_config() >>. \n However, inner contents of the config is not updated compared to previous step.", "yellow")
+        # FIXME : data dict 내에 dataframe 있으면 ValueError: Can only compare identically-labeled DataFrame objects 에러 발생 가능성 존재 
+        # if self.asset_config == config: 
+        #     self.print_color("[NOTICE] You called << self.asset.save_config() >>. \n However, inner contents of the config is not updated compared to previous step.", "yellow")
         # asset_config update ==> decorator_run에서 다음 step으로 넘겨주는데 사용됨
         self.asset_config = config 
     
@@ -210,21 +212,25 @@ class Asset:
             -----------
                 - summary_data = save_summary(result='OK', score=0.613, note='aloalo.csv', probability={'OK':0.715, 'NG':0.135, 'NG1':0.15})
         """
+        result_len_limit = 32
+        note_len_limit = 128 
+        
         # result는 문자열 12자 이내인지 확인
-        if not isinstance(result, str) or len(result) > 25:
-            self._asset_error("The length of string argument << result >>  must be within 25 ")
+        if not isinstance(result, str) or len(result) > result_len_limit:
+            self._asset_error(f"The length of string argument << result >>  must be within {result_len_limit} ")
         
         # score는 0 ~ 1.0 사이의 값인지 확인
         if not isinstance(score, (int, float)) or not 0 <= score <= 1.0:
             self._asset_error("The value of float (or int) argument << score >> must be between 0.0 and 1.0 ")
 
         # note는 문자열 100자 이내인지 확인
-        if not isinstance(result, str) or len(note) > 100:
-            self._asset_error("The length of string argument << note >>  must be within 100 ")
+        if not isinstance(result, str) or len(note) > note_len_limit:
+            self._asset_error(f"The length of string argument << note >>  must be within {note_len_limit} ")
                     
         # probability가 존재하는 경우 dict인지 확인
         if (probability is not None) and (not isinstance(probability, dict)):
             self._asset_error("The type of argument << probability >> must be << dict >>")
+            
         # probability key는 string이고 value는 float or int인지 확인 
         key_chk_str_set = set([isinstance(k, str) for k in probability.keys()])
         value_type_set = set([type(v) for v in probability.values()])
@@ -429,13 +435,14 @@ class Asset:
                     # run user asset 
                     func(self, *args, **kwargs)
                     # check whether data & config are updated
-                    if prev_data != self.asset_data:
-                        self.print_color(f"Successfully updated the data @ << {step} >> step", "green")
-                    if prev_config != self.asset_config: 
-                        self.print_color(f"Successfully updated the config @ << {step} >> step", "green")
+                    # FIXME : data dict 내에 dataframe 있으면 ValueError: Can only compare identically-labeled DataFrame objects 에러 발생 가능성 존재 
+                    # if prev_data != self.asset_data:
+                    #     self.print_color(f"Successfully updated the data @ << {step} >> step", "green")
+                    # if prev_config != self.asset_config: 
+                    #     self.print_color(f"Successfully updated the config @ << {step} >> step", "green")
                         
                     #if not isinstance(self.output, dict) or not isinstance(config, dict):
-                    if not isinstance( self.asset_data, dict) or not isinstance(self.asset_config, dict):
+                    if not isinstance(self.asset_data, dict) or not isinstance(self.asset_config, dict):
                         self._asset_error(f"You should make dict for argument of << self.asset.save_data()>> or << self.asset.save_config() >> \n @ << {step} >> step.")  # 반환된 값이 딕셔너리가 아닐 때 에러 발생
                 except TypeError:
                     self._asset_error(f"Failed to run your << {step} >> step. Please check whetehr you correctly used user API.")
@@ -446,7 +453,7 @@ class Asset:
                 self._asset_error(str(e))
             # print asset finish info.
             self._asset_finish_info(self.asset_data.keys(), self.asset_config)
-            return self.asset_data, self.asset_config  #self.output, config
+            return self.asset_data, self.asset_config  
         return _run
 
 
@@ -507,6 +514,8 @@ class Asset:
         logging.config.dictConfig(self.logging_config)
         error_logger = logging.getLogger("ERROR") 
         error_logger.error(f'{msg}')
+        
+        raise ValueError(f"{msg}")
 
         
         
