@@ -6,7 +6,7 @@ result = subprocess.run(['git', 'symbolic-ref', '--short', 'HEAD'], stdout=subpr
 branch = result.stdout.decode('utf-8').strip()
 
 if branch == 'develop':
-    version = 'develop'
+    version = 0
 else:
     version = re.search(r'release-(\d+\.\d+)', branch).group(1)
 
