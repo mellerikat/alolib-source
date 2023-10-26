@@ -71,7 +71,7 @@ class Asset:
             self.asset_envs['load_config'] = 0 
             self.asset_envs['save_data'] = 0 
             self.asset_envs['save_config'] = 0 
-            
+
             self.asset_args = asset_structure.args
             self.asset_data = asset_structure.data
             self.asset_config = asset_structure.config
@@ -80,14 +80,16 @@ class Asset:
             self.asset_error(str(e))
         # 현재는 PROJECT PATH 보다 한 층 위 folder에서 실행 중 
         self.project_home = self.asset_envs['project_home']
-        # FIXME  사용자 api 에서 envs 를 arguments로 안받기 위해 artifacts 변수 생성 
-        self.asset_envs["artifacts"] = self.asset_envs["artifacts"]
+        
         # input 데이터 경로 
         self.input_data_home = self.project_home + "input/"
         # asset 코드들의 위치
         self.asset_home = self.project_home + "assets/"
 
         # 2. logging conifg 
+        # pipeline name check는 이미 master 쪽 src/alo.py에서 진행
+        artifact_dir = '.train_artifacts/' if self.asset_envs['pipeline'] == 'train_pipeline' else '.inference_artifacts/'
+        self.log_file_path = self.project_home + artifact_dir + "log/pipeline.log"
         # (ref. : https://www.daleseo.com/python-logging-config/)
         self.logging_config = { 
                 "version": 1,
@@ -105,7 +107,7 @@ class Asset:
                     },
                     "file": {
                         "class": "logging.FileHandler",
-                        "filename": "user_asset.log", # FIXME log 파일 경로 변경 필요 (train, inference pipeline name 에 따라 artifacts log 쪽으로)
+                        "filename": self.log_file_path,
                         "formatter": "complex",
                         "level": "INFO",
                     },
