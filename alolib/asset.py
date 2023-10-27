@@ -11,28 +11,8 @@ import logging
 import logging.config 
 
 from alolib.utils import save_file, load_file
+from alolib.logger import Logger 
 
-#--------------------------------------------------------------------------------------------------------------------------
-#    GLOBAL VARIABLE
-#--------------------------------------------------------------------------------------------------------------------------
-COLOR_RED = '\033[91m'
-COLOR_END = '\033[0m'
-
-ARG_NAME_MAX_LENGTH = 30
-
-COLOR_DICT = {
-   'PURPLE':'\033[95m',
-   'CYAN':'\033[96m',
-   'DARKCYAN':'\033[36m',
-   'BLUE':'\033[94m',
-   'GREEN':'\033[92m',
-   'YELLOW':'\033[93m',
-   'RED':'\033[91m',
-   'BOLD':'\033[1m',
-   'UNDERLINE':'\033[4m',
-}
-
-COLOR_END = '\033[0m'
 #--------------------------------------------------------------------------------------------------------------------------
 #    CLASS
 #--------------------------------------------------------------------------------------------------------------------------
@@ -41,7 +21,6 @@ class Asset:
     # def __init__(self, envs, argv, version='None'):
     def __init__(self, asset_structure):
         self.asset = self
-
         self.artifacts_structure = {
             'input': {}, 
             '.train_artifacts': {
@@ -67,58 +46,45 @@ class Asset:
             self.alo_version = self.asset_envs['alo_version']
             self.asset_branch = self.asset_envs['asset_branch']
             # API 호출 했는 지 count 
-            self.asset_envs['load_data'] = 0 
-            self.asset_envs['load_config'] = 0 
-            self.asset_envs['save_data'] = 0 
-            self.asset_envs['save_config'] = 0 
-
+            for k in ['load_data', 'load_config', 'save_data', 'save_config']:
+                self.asset_envs[k] = 0 
+            # 현재는 PROJECT PATH 보다 한 층 위 folder에서 실행 중 
+            self.project_home = self.asset_envs['project_home']
+            # log file path 
+            self.artifact_dir = '.train_artifacts/' if self.asset_envs['pipeline'] == 'train_pipeline' else '.inference_artifacts/'
+            self.log_file_path = self.project_home + self.artifact_dir + "log/pipeline.log"
+            self.asset_envs['log_file_path'] = self.log_file_path
+            
             self.asset_args = asset_structure.args
             self.asset_data = asset_structure.data
             self.asset_config = asset_structure.config
-
+            
         except Exception as e:
-            self.asset_error(str(e))
-        # 현재는 PROJECT PATH 보다 한 층 위 folder에서 실행 중 
-        self.project_home = self.asset_envs['project_home']
+            raise ValueError(e)
+        
+        # init logger 
+        self.logger = Logger(self.asset_envs)
         
         # input 데이터 경로 
         self.input_data_home = self.project_home + "input/"
         # asset 코드들의 위치
         self.asset_home = self.project_home + "assets/"
 
-        # 2. logging conifg 
-        # pipeline name check는 이미 master 쪽 src/alo.py에서 진행
-        artifact_dir = '.train_artifacts/' if self.asset_envs['pipeline'] == 'train_pipeline' else '.inference_artifacts/'
-        self.log_file_path = self.project_home + artifact_dir + "log/pipeline.log"
-        # (ref. : https://www.daleseo.com/python-logging-config/)
-        self.logging_config = { 
-                "version": 1,
-                "formatters": {
-                    "simple": {"format": "[%(name)s] %(message)s"},
-                    "complex": {
-                        "format": f"%(asctime)s %(levelname)s [%(filename)s:%(lineno)d]: [{self.asset_envs['pipeline']}] / [{self.asset_envs['step']} step] - %(message)s"
-                    },
-                },
-                "handlers": {
-                    "console": {
-                        "class": "logging.StreamHandler",
-                        "formatter": "simple",
-                        "level": "INFO",
-                    },
-                    "file": {
-                        "class": "logging.FileHandler",
-                        "filename": self.log_file_path,
-                        "formatter": "complex",
-                        "level": "INFO",
-                    },
-                },
-                "root": {"handlers": ["console", "file"], "level": "INFO"},
-                "loggers": {"ERROR": {"level": "ERROR"}, "WARNING": {"level": "WARNING"}, "INFO": {"level": "INFO"}},
-            }
 
-##################################################################################################################################################################
+
+        
+    ##################################################################################################################################################################
     #                                                                           Slave API
     ##################################################################################################################################################################
+    def save_info(self, msg):
+        self.logger.user_info(msg)
+        
+    def save_warning(self, msg):
+        self.logger.user_warning(msg)
+        
+    def save_error(self, msg):
+        self.logger.user_error(msg)
+        
     def load_args(self):
         """ Description
             -----------
@@ -177,18 +143,14 @@ class Asset:
                 self.asset_envs['load_config'] += 1
                 return config
             except Exception as e:
-                self.asset_error(str(e))     
+                self.logger.asset_error(str(e))     
         else: 
-            self.asset_error(f"Only << file >> or << memory >> is supported for << interface_mode >>")
+            self.logger.asset_error(f"Only << file >> or << memory >> is supported for << interface_mode >>")
             
     # TODO 파일 모드 시 .asset_interface에 저장할 때 step별로 subdirectory로 나눌필요 추후 있을듯 
     def save_config(self, config):
         if not isinstance(config, dict):
-            self.asset_error("Failed to save_config(). only << dict >> type is supported for the function argument.")
-        # 사용자가 특정 asset에서 config 변경 없이 그냥 바로 다음 step으로 넘겨버리는 경우 
-        # FIXME : data dict 내에 dataframe 있으면 ValueError: Can only compare identically-labeled DataFrame objects 에러 발생 가능성 존재 
-        # if self.asset_config == config: 
-        #     self.print_color("[NOTICE] You called << self.asset.save_config() >>. \n However, inner contents of the config is not updated compared to previous step.", "yellow")
+            self.logger.asset_error("Failed to save_config(). only << dict >> type is supported for the function argument.")
         # asset_config update ==> decorator_run에서 다음 step으로 넘겨주는데 사용됨
         if self.asset_envs['interface_mode'] == 'memory':
             self.asset_envs['save_config'] += 1
@@ -198,20 +160,20 @@ class Asset:
                 dir_path = self.asset_envs['artifacts']['.asset_interface'] + self.asset_envs['pipeline'] + "/"
                 if not os.path.exists(dir_path):
                     os.makedirs(dir_path)
-                    self.print_color(f"<< {dir_path} >> directory created.", 'blue')
+                    self.logger.asset_info(f"<< {dir_path} >> directory created.")
                 else:
-                    self.print_color(f"<< {dir_path} >> directory already exists.", 'blue')
+                    self.logger.asset_info(f"Saving config: << {dir_path} >> directory already exists.")
                 config_file = dir_path + self.asset_envs['step']
                 if type(config) == dict:
                     config_file = config_file + "_config.pkl"
                 else:
-                    self.asset_error("The type of data must be << dict >>")
+                    self.logger.asset_error("The type of data must be << dict >>")
                 save_file(config, config_file)
                 self.asset_envs['save_config'] += 1
             except Exception as e:
-                self.asset_error(str(e))   
+                self.logger.asset_error(str(e))   
         else: 
-            self.asset_error(f"Only << file >> or << memory >> is supported for << interface_mode >>")  
+            self.logger.asset_error(f"Only << file >> or << memory >> is supported for << interface_mode >>")  
         
     # FIXME data도 copy()로 돌려줄 필요 있을 지? 
     def load_data(self):
@@ -242,18 +204,14 @@ class Asset:
                 self.asset_envs['load_data'] += 1
                 return data
             except Exception as e:
-                self.asset_error(str(e))     
+                self.logger.asset_error(str(e))     
         else: 
-            self.asset_error(f"Only << file >> or << memory >> is supported for << interface_mode >>")
+            self.logger.asset_error(f"Only << file >> or << memory >> is supported for << interface_mode >>")
     
     # TODO 파일 모드 시 .asset_interface에 저장할 때 step별로 subdirectory로 나눌필요 추후 있을듯 
     def save_data(self, data):
         if not isinstance(data, dict):
-            self.asset_error("Failed to save_data(). only << dict >> type is supported for the function argument.")
-        # 사용자가 특정 asset에서 data 변경 없이 그냥 바로 다음 step으로 넘겨버리는 경우 
-        # FIXME : data dict 내에 dataframe 있으면 ValueError: Can only compare identically-labeled DataFrame objects 에러 발생 가능성 존재 
-        # if self.asset_data == data: 
-        #     self.print_color("[NOTICE] You called << self.asset.save_data() >>. \n However, inner contents of the data is not updated compared to previous step.", "yellow")
+            self.logger.asset_error("Failed to save_data(). only << dict >> type is supported for the function argument.")
         # asset_data update ==> decorator_run에서 다음 step으로 넘겨주는데 사용됨
         if self.asset_envs['interface_mode'] == 'memory':
             self.asset_envs['save_data'] += 1 # 이번 asset에서 save_data API를 1회만 잘 호출했는지 체크 
@@ -263,20 +221,20 @@ class Asset:
                 dir_path = self.asset_envs['artifacts']['.asset_interface'] + self.asset_envs['pipeline'] + "/"
                 if not os.path.exists(dir_path):
                     os.makedirs(dir_path)
-                    self.print_color(f"<< {dir_path} >> directory created.", 'blue')
+                    self.logger.asset_info(f"<< {dir_path} >> directory created.")
                 else:
-                    self.print_color(f"<< {dir_path} >> directory already exists.", 'blue')
+                    self.logger.asset_info(f"Saving data: << {dir_path} >> directory already exists.")
                 data_file = dir_path + self.asset_envs['step']
                 if type(data) == dict:
                     data_file = data_file + "_data.pkl"
                 else:
-                    self.asset_error("The type of data must be << dict >>")
+                    self.logger.asset_error("The type of data must be << dict >>")
                 save_file(data, data_file)
                 self.asset_envs['save_data'] += 1
             except Exception as e:
-                self.asset_error(str(e))   
+                self.logger.asset_error(str(e))   
         else: 
-            self.asset_error(f"Only << file >> or << memory >> is supported for << interface_mode >>")  
+            self.logger.asset_error(f"Only << file >> or << memory >> is supported for << interface_mode >>")  
     
     
     def save_summary(self, result, score, note="AI Advisor", probability=None):
@@ -305,30 +263,30 @@ class Asset:
         
         # result는 문자열 12자 이내인지 확인
         if not isinstance(result, str) or len(result) > result_len_limit:
-            self.asset_error(f"The length of string argument << result >>  must be within {result_len_limit} ")
+            self.logger.asset_error(f"The length of string argument << result >>  must be within {result_len_limit} ")
         
         # score는 0 ~ 1.0 사이의 값인지 확인
         if not isinstance(score, (int, float)) or not 0 <= score <= 1.0:
-            self.asset_error("The value of float (or int) argument << score >> must be between 0.0 and 1.0 ")
+            self.logger.asset_error("The value of float (or int) argument << score >> must be between 0.0 and 1.0 ")
 
         # note는 문자열 100자 이내인지 확인
         if not isinstance(result, str) or len(note) > note_len_limit:
-            self.asset_error(f"The length of string argument << note >>  must be within {note_len_limit} ")
+            self.logger.asset_error(f"The length of string argument << note >>  must be within {note_len_limit} ")
                     
         # probability가 존재하는 경우 dict인지 확인
         if (probability is not None) and (not isinstance(probability, dict)):
-            self.asset_error("The type of argument << probability >> must be << dict >>")
+            self.logger.asset_error("The type of argument << probability >> must be << dict >>")
             
         # probability key는 string이고 value는 float or int인지 확인 
         key_chk_str_set = set([isinstance(k, str) for k in probability.keys()])
         value_type_set = set([type(v) for v in probability.values()])
         if key_chk_str_set != {True}: 
-            self.asset_error("The key of dict argument << probability >> must have the type of << str >> ")
+            self.logger.asset_error("The key of dict argument << probability >> must have the type of << str >> ")
         if not value_type_set.issubset({float, int}): 
-            self.asset_error("The value of dict argument << probability >> must have the type of << int >> or << float >> ")
+            self.logger.asset_error("The value of dict argument << probability >> must have the type of << int >> or << float >> ")
         # probability value 합이 1인지 확인 
         if sum(probability.values()) != 1: 
-            self.asset_error("The sum of probability dict values must be << 1.0 >>")
+            self.logger.asset_error("The sum of probability dict values must be << 1.0 >>")
         
         # FIXME 가령 0.50001, 0.49999 같은건 대응이 안됨 
         # FIXME 처음에 사용자가 입력한 dict가 합 1인지도 체크필요 > 부동소수 에러 예상
@@ -360,14 +318,14 @@ class Asset:
         elif self.asset_envs['pipeline'] == "inference_pipeline":
             file_path = self.asset_envs["artifacts"][".inference_artifacts"] + "score/" + "inference_summary.yaml" 
         else: 
-            self.asset_error(f"You have written wrong value for << asset_source  >> in the config yaml file. - { self.asset_envs['pipeline']} \n Only << train_pipeline >> and << inference_pipeline >> are permitted")
+            self.logger.asset_error(f"You have written wrong value for << asset_source  >> in the config yaml file. - { self.asset_envs['pipeline']} \n Only << train_pipeline >> and << inference_pipeline >> are permitted")
         
         # save summary yaml 
         try:      
             with open(file_path, 'w') as file:
                 yaml.dump(summary_data, file, default_flow_style=False)
         except: 
-            self.asset_error(f"Failed to save summary yaml file \n @ << {file_path} >>")
+            self.logger.asset_error(f"Failed to save summary yaml file \n @ << {file_path} >>")
              
         return summary_data
 
@@ -392,13 +350,13 @@ class Asset:
         """
         # use_inference_path type check 
         if not isinstance(use_inference_path, bool):
-            self.asset_error("The type of argument << use_inference_path >>  must be << boolean >> ")
+            self.logger.asset_error("The type of argument << use_inference_path >>  must be << boolean >> ")
         
         # yaml에 잘 "train_pipeline" or "inference_pipeline" 라고 잘 입력했는지 체크
         allowed_pipeline_mode_list = ["train_pipeline",  "inference_pipeline"]
         current_pipe_mode = self.asset_envs['pipeline']
         if current_pipe_mode not in allowed_pipeline_mode_list: 
-            self.asset_error(f"You entered the wrong parameter for << user_parameters >> in your config yaml file : << {current_pipe_mode} >>. \n L ""You can select the pipeline_mode among << {allowed_pipeline_mode_list} >>"" ")
+            self.logger.asset_error(f"You entered the wrong parameter for << user_parameters >> in your config yaml file : << {current_pipe_mode} >>. \n L ""You can select the pipeline_mode among << {allowed_pipeline_mode_list} >>"" ")
         
         # create step path 
         # default로는 step name은 train-inference 혹은 inference1-inference2 (추후 pipeline_name 추가 시) 간의 step 명이 같은 것 끼리 pair 
@@ -414,25 +372,25 @@ class Asset:
             # infernce path를 사용
             artifacts_name = ".inference_artifacts"
         elif use_inference_path == True and current_pipe_mode != "inference_pipeline":
-            self.asset_error("If you set 'use_inference_path' to True, it should operate in the inference pipeline.")
+            self.logger.asset_error("If you set 'use_inference_path' to True, it should operate in the inference pipeline.")
 
         model_path = self.asset_envs["artifacts"][artifacts_name] + f"models/{current_step_name}/"
 
         # inference pipeline 때 train artifacts에 같은 step 이름 없으면 에러 
         if (current_pipe_mode  == "inference_pipeline") and (current_step_name != "inference"):
             if not os.path.exists(model_path):
-                self.asset_error(f"You must execute train pipeline first. There is no model path : \n {model_path}") 
+                self.logger.asset_error(f"You must execute train pipeline first. There is no model path : \n {model_path}") 
         # FIXME pipeline name 관련해서 추가 yaml 인자 받아서 추가 개발 필요 
         elif (current_pipe_mode  == "inference_pipeline") and (current_step_name == "inference"):
             model_path = self.asset_envs["artifacts"][artifacts_name] + f"models/train/"
             if not os.path.exists(model_path): 
-                self.asset_error(f"You must execute train pipeline first. There is no model path : \n {model_path}") 
+                self.logger.asset_error(f"You must execute train pipeline first. There is no model path : \n {model_path}") 
             elif (os.path.exists(model_path)) and (len(os.listdir(model_path)) == 0): 
-                self.asset_error(f"You must generate train model first. There is no model in the train model path : \n {model_path}") 
+                self.logger.asset_error(f"You must generate train model first. There is no model in the train model path : \n {model_path}") 
                     
         # trian 땐 없으면 폴더 생성 
         os.makedirs(model_path, exist_ok=True) # exist_ok =True : 이미 존재하면 그대로 둠 
-        self.print_color(f">> Successfully got model path for saving or loading your AI model: \n {model_path}", "green")
+        self.logger.asset_info(f"Successfully got model path for saving or loading your AI model: \n {model_path}", "green")
         
         return model_path
 
@@ -458,7 +416,7 @@ class Asset:
         allowed_pipeline_mode_list = ["train_pipeline",  "inference_pipeline"]
         current_pipe_mode = self.asset_envs['pipeline']
         if current_pipe_mode  not in allowed_pipeline_mode_list: 
-            self.asset_error(f"You entered the wrong parameter for << user_parameters >> in your config yaml file : << {current_pipe_mode} >>. \n L ""You can select the pipeline_mode among << {allowed_pipeline_mode_list} >>"" ")
+            self.logger.asset_error(f"You entered the wrong parameter for << user_parameters >> in your config yaml file : << {current_pipe_mode} >>. \n - ""You can select the pipeline_mode among << {allowed_pipeline_mode_list} >>"" ")
         
         # create output path 
         output_path = ""
@@ -470,7 +428,7 @@ class Asset:
             output_path = self.asset_envs["artifacts"][".inference_artifacts"] + f"output/{current_step_name}/"
             os.makedirs(output_path, exist_ok=True)
             
-        self.print_color(f">> Successfully got << output path >> for saving your data into csv or jpg file: \n {output_path} \n L [NOTE] ""The names of output file must be fixed as << output.csv, output.jpg >>"" ", "green")
+        self.logger.asset_info(f"Successfully got << output path >> for saving your data into csv or jpg file: \n {output_path} \n - [NOTE] ""The names of output file must be fixed as << output.csv, output.jpg >>"" ", "green")
         
         return output_path
 
@@ -495,14 +453,14 @@ class Asset:
         allowed_pipeline_mode_list = ["train_pipeline"]
         current_pipe_mode = self.asset_envs['pipeline']
         if current_pipe_mode  not in allowed_pipeline_mode_list: 
-            self.asset_error(f"You entered the wrong parameter for << user_parameters >> in your config yaml file : << {current_pipe_mode} >>. \n L ""You can select the pipeline_mode among << {allowed_pipeline_mode_list} >>"" ")
+            self.logger.asset_error(f"You entered the wrong parameter for << user_parameters >> in your config yaml file : << {current_pipe_mode} >>. \n L ""You can select the pipeline_mode among << {allowed_pipeline_mode_list} >>"" ")
             
         # create report path 
         report_path = self.asset_envs["artifacts"][".train_artifacts"] + "report/"
         os.makedirs(report_path, exist_ok=True) # exist_ok =True : 이미 존재하면 그대로 둠 
 
         report_path  = report_path
-        self.print_color(f">> Successfully got << report path >> for saving your << report.html >> file: \n {report_path}", "green")
+        self.logger.asset_info(f"Successfully got << report path >> for saving your << report.html >> file: \n {report_path}", "green")
         
         return report_path
     
@@ -511,7 +469,8 @@ class Asset:
     
     ##################################################################################################################################################################
     
-    
+    # TODO : check whether data & config are updated 필요할지? 
+    # FIXME : 만약 config, data에 대해서 dict 타입으로 비교할 때 data dict 내에 dataframe 있으면 ValueError: Can only compare identically-labeled DataFrame objects 에러 발생 가능성 존재 
     def decorator_run(func):
         def _run(self, *args, **kwargs):
             try:
@@ -524,91 +483,23 @@ class Asset:
                 func(self, *args, **kwargs)
                 # save_data, save_config 호출은 step 당 1회 제한 (안그러면 덮어씌워짐)
                 if (self.asset_envs['save_data'] != 1) or (self.asset_envs['save_config'] != 1):
-                        self.asset_error(f"You did not call (or more than once) the \n << self.asset.save_data() >> \
+                        self.logger.asset_error(f"You did not call (or more than once) the \n << self.asset.save_data() >> \
                                             or << self.asset.save_conifg() >> API in the << {step} >> step. \n Both of calls are mandatory.")
-                # check whether data & config are updated
-                # FIXME : data dict 내에 dataframe 있으면 ValueError: Can only compare identically-labeled DataFrame objects 에러 발생 가능성 존재 
-                # if prev_data != self.asset_data:
-                #     self.print_color(f"Successfully updated the data @ << {step} >> step", "green")
-                # if prev_config != self.asset_config: 
-                #     self.print_color(f"Successfully updated the config @ << {step} >> step", "green")
                     
                 if (not isinstance(self.asset_data, dict)) or (not isinstance(self.asset_config, dict)):
-                    self.asset_error(f"You should make dict for argument of << self.asset.save_data()>> or << self.asset.save_config() >> \n @ << {step} >> step.")  
+                    self.logger.asset_error(f"You should make dict for argument of << self.asset.save_data()>> or << self.asset.save_config() >> \n @ << {step} >> step.")  
 
             except Exception as e:
-                self.asset_error(str(e))
+                self.logger.asset_error(str(e))
                 
             # print asset finish info.
-            self._asset_finish_info(self.asset_data.keys(), self.asset_config)
+            self._asset_finish_info(self.asset_data, self.asset_config)
             
             return self.asset_data, self.asset_config  
         
         return _run
 
 
-    def save_info(self, msg):
-        """ Description
-            -----------
-                - User Asset에서 알려주고 싶은 정보를 저장한다.
-            Parameters
-            -----------
-                - msg (str) : 저장할 문자열 (max length : 255)
-            Example
-            -----------
-                - save_info('hello')
-        """
-        if not isinstance(msg, str):
-            self.asset_error(f"Failed to save_log(). Only support << str >> type for the argument. \n You entered: {msg}")
-        
-        logging.config.dictConfig(self.logging_config)
-        info_logger = logging.getLogger("INFO") 
-        info_logger.info(f'{msg}')
- 
-
-    def save_warning(self, msg):
-        """Description
-            -----------
-                - Asset에서 필요한 정보를 저장한다.
-            Parameters
-            -----------
-                - msg (str) : 저장할 문자열 (max length : 255)
-            Example
-            -----------
-                - save_warning('hello')
-        """
-
-        if not isinstance(msg, str):
-            self.asset_error(f"Failed to save_warning(). Only support << str >> type for the argument. \n You entered: {msg}")
-
-        logging.config.dictConfig(self.logging_config)
-        warning_logger = logging.getLogger("WARNING") 
-        warning_logger.warning(f'{msg}')
-
-
-    def save_error(self, msg):
-        """Description
-            -----------
-                - Asset에서 필요한 정보를 저장한다.
-            Parameters
-            -----------
-                - msg (str) : 저장할 문자열 (max length : 255)
-            Example
-            -----------
-                - save_warning('hello')
-        """
-
-        if not isinstance(msg, str):
-            self.asset_error(f"Failed to save_warning(). Only support << str >> type for the argument. \n You entered: {msg}")
-
-        logging.config.dictConfig(self.logging_config)
-        error_logger = logging.getLogger("ERROR") 
-        error_logger.error(f'{msg}')
-        
-        raise ValueError(f"{msg}")
-
-        
-        
     def check_args(self, arg_key, is_required=False, default="", chng_type="str" ):
         """ Description
             -----------
@@ -631,22 +522,19 @@ class Asset:
         """
         if is_required:
             try:
-                # arg_value         = self.asset_args[arg_key]
                 arg_value = self.asset_args[arg_key] if self.asset_args[arg_key] is not None else ""
             except:
-                self.asset_error('>> Not found args [{}]'.format(arg_key))
+                self.logger.asset_error('>> Not found args [{}]'.format(arg_key))
         else:
             try:
-                # arg_value         = self.asset_args[arg_key]
                 if type(self.asset_args[arg_key]) == type(None):
-                    arg_value         = default
+                    arg_value = default
                 else:
                     arg_value = self.asset_args[arg_key] if self.asset_args[arg_key] is not None else ""
             except:
-                arg_value         = default
+                arg_value = default
                 
-
-        chk_type = type(arg_value)## issue: TypeError: 'str' object is not callable
+        chk_type = type(arg_value) ## issue: TypeError: 'str' object is not callable
         if chk_type == list:
             pass
         else:
@@ -659,31 +547,6 @@ class Asset:
 #    COMMON FUNCTION
 # --------------------------------------------------------------------------------------------------------------------------
 
-    def print_color(self, msg, _color):
-        """ Description
-            -----------
-                Display text with color 
-
-            Parameters
-            -----------
-                msg (str) : text
-                _color (str) : PURPLE, CYAN, DARKCYAN, BLUE, GREEN, YELLOW, RED, BOLD, UNDERLINE
-
-            example
-            -----------
-                print_color('Display color text', 'BLUE')
-        """
-        
-        def _check_string(_value): # inner function 
-            if type(_value) != str:
-                raise ValueError('only string type')
-        _check_string(msg)
-        _check_string(_color)
-    
-        if _color.upper() in COLOR_DICT.keys():
-            print(COLOR_DICT[_color.upper()]+msg+COLOR_END)
-        else:
-            raise ValueError('Select color : {}'.format(COLOR_DICT.keys()))
         
     def _convert_variable_type(self, variable, target_type):
         if not isinstance(target_type, str) or target_type.lower() not in ["str", "int", "float", "list", "bool"]:
@@ -705,47 +568,29 @@ class Asset:
         else:
             return variable
 
-# --------------------------------------------------------------------------------------------------------------------------
-#    MODEL CONDUCTOR FUNCTION
-# --------------------------------------------------------------------------------------------------------------------------
-    def asset_error(self, msg):
-        time_utc = datetime.now(timezone('UTC')).strftime('%Y-%m-%d %H:%M:%S')
-        # time_kst = datetime.now(timezone('Asia/Seoul')).strftime('%Y-%m-%d %H:%M:%S')
-        print('\n')
-        self.print_color("============================= ASSET ERROR =============================", 'red')
-        #self.print_color(f"TIME(UTC)    : {time_utc} (KST : {time_kst})", 'red')
-        self.print_color(f"TIME(UTC)    : {time_utc}", 'red')
-        self.print_color(f"PIPELINE    : {self.asset_envs['pipeline']}", 'red')
-        self.print_color(f"STEP     : {self.asset_envs['step']}", 'red')
-        self.print_color(f"ERROR(msg)   : {msg}", 'red')
-        self.print_color("=======================================================================", 'red')
-        print('\n')
-
-        raise ValueError(msg)
-    
-            
+                
     def _asset_start_info(self):
-        print('\n')
-        self.print_color("============================= ASSET START =============================", 'blue')
-        self.print_color(f"- time (UTC)    : {datetime.now(timezone('UTC')).strftime('%Y-%m-%d %H:%M:%S')}", 'blue')
-        self.print_color(f"- current step   : {self.asset_envs['step']}", 'blue')
-        self.print_color(f"- asset branch.   : {self.asset_branch}", 'blue')
-        self.print_color(f"- alolib ver.  : {self.alolib_version}", 'blue')
-        self.print_color(f"- alo ver.  : {self.alo_version}", 'blue')
-        self.print_color(f"- load envs.   : {self.asset_envs}", 'blue')
-        self.print_color(f"- load args.   : {self.asset_args}", 'blue')
-        self.print_color(f"- load config.   : {self.asset_config}", 'blue')
-        self.print_color(f"- load data keys  : {self.asset_data.keys()}", 'blue')
-        self.print_color("=======================================================================", 'blue')
-        print('\n')
+        msg = "".join([
+            f"\n\n============================= ASSET START =============================\n\n",
+            f"- time (UTC)        : {datetime.now(timezone('UTC')).strftime('%Y-%m-%d %H:%M:%S')}\n",
+            f"- current step      : {self.asset_envs['step']}\n",
+            f"- asset branch.     : {self.asset_branch}\n", 
+            f"- alolib ver.       : {self.alolib_version}\n",
+            f"- alo ver.          : {self.alo_version}\n",
+            f"- load envs. keys   : {self.asset_envs.keys()}\n",
+            f"- load args. keys   : {self.asset_args.keys()}\n",
+            f"- load config. keys : {self.asset_config.keys()}\n", 
+            f"- load data keys    : {self.asset_data.keys()}\n",
+            f"=======================================================================\n\n"])
+        self.logger.asset_info(msg)
 
 
-    def _asset_finish_info(self, data_keys, config): 
-        print('\n')
-        self.print_color("============================= ASSET FINISH ============================", 'blue')
-        self.print_color(f"- time (UTC)    : {datetime.now(timezone('UTC')).strftime('%Y-%m-%d %H:%M:%S')}", 'blue')
-        self.print_color(f"- current step   : {self.asset_envs['step']}", 'blue')
-        self.print_color(f"- save config.   : {config}", 'blue')
-        self.print_color(f"- save data keys  : {data_keys}", 'blue')
-        self.print_color("=======================================================================", 'blue')
-        print('\n')
+    def _asset_finish_info(self, data, config): 
+        msg = "".join([
+            f"\n\n============================= ASSET FINISH ===========================\n",
+            f"- time (UTC)        : {datetime.now(timezone('UTC')).strftime('%Y-%m-%d %H:%M:%S')}\n",
+            f"- current step      : {self.asset_envs['step']}\n",
+            f"- save config. keys : {config.keys()}\n",
+            f"- save data keys    : {data.keys()}\n",
+            f"=======================================================================\n\n"])
+        self.logger.asset_info(msg)
