@@ -493,7 +493,7 @@ class Asset:
                 self.logger.asset_error(str(e))
                 
             # print asset finish info.
-            self._asset_finish_info(self.asset_data, self.asset_config)
+            self._asset_finish_info()
             
             return self.asset_data, self.asset_config  
         
@@ -585,12 +585,12 @@ class Asset:
         self.logger.asset_info(msg)
 
 
-    def _asset_finish_info(self, data, config): 
+    def _asset_finish_info(self): 
         msg = "".join([
             f"\n\n============================= ASSET FINISH ===========================\n",
             f"- time (UTC)        : {datetime.now(timezone('UTC')).strftime('%Y-%m-%d %H:%M:%S')}\n",
             f"- current step      : {self.asset_envs['step']}\n",
-            f"- save config. keys : {config.keys()}\n",
-            f"- save data keys    : {data.keys()}\n",
+            f"- save config. keys : {self.asset_config.keys()}\n",
+            f"- save data keys    : {self.asset_data.keys()}\n",
             f"=======================================================================\n\n"])
         self.logger.asset_info(msg)
