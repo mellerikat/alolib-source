@@ -233,7 +233,8 @@ class Asset:
                 self.logger.asset_error(str(e))   
         else: 
             self.logger.asset_error(f"Only << file >> or << memory >> is supported for << interface_mode >>")  
-    
+        
+
     
     def save_summary(self, result, score, note="AI Advisor", probability=None):
         

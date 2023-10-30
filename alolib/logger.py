@@ -29,6 +29,7 @@ COLOR_END = '\033[0m'
 #--------------------------------------------------------------------------------------------------------------------------
 #    ProcessLogger Class : (ALO master에서만 사용)
 #--------------------------------------------------------------------------------------------------------------------------
+# TODO https://betterstack.com/community/questions/how-to-color-python-logging-output/ 등 참고하여 log config의 stream handler에 색깔 넣는 방법 있다면 현재 print_color로 출력후 file handler만 쓴는 방식 수정하는게 좋을듯 
 class ProcessLogger: 
     # [%(filename)s:%(lineno)d]
     # envs 미입력 시 설치 과정, 프로세스 진행 과정 등 전체 과정 보기 위한 로그 생성 
