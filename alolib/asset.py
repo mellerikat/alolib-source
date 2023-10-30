@@ -571,7 +571,7 @@ class Asset:
                 
     def _asset_start_info(self):
         msg = "".join([
-            f"\n\n============================= ASSET START =============================\n\n",
+            f"\n\n============================= ASSET START =============================\n",
             f"- time (UTC)        : {datetime.now(timezone('UTC')).strftime('%Y-%m-%d %H:%M:%S')}\n",
             f"- current step      : {self.asset_envs['step']}\n",
             f"- asset branch.     : {self.asset_branch}\n", 
