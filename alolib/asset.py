@@ -202,6 +202,7 @@ class Asset:
                 file_path = self.asset_envs['artifacts']['.asset_interface'] + self.asset_envs['pipeline'] + "/" + self.asset_envs['prev_step'] + "_data.pkl"
                 data = load_file(file_path)
                 self.asset_envs['load_data'] += 1
+                self.logger.asset_info(f"Successfully loaded data: {file_path}")
                 return data
             except Exception as e:
                 self.logger.asset_error(str(e))     
@@ -231,6 +232,7 @@ class Asset:
                     self.logger.asset_error("The type of data must be << dict >>")
                 save_file(data, data_file)
                 self.asset_envs['save_data'] += 1
+                self.logger.asset_info(f"Successfully saved data: {data_file}")
             except Exception as e:
                 self.logger.asset_error(str(e))   
         else: 

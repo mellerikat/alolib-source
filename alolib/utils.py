@@ -40,7 +40,7 @@ def load_file(_data_file, _print=True):
                 with open(_data_file, 'r') as f:
                     _data = json.load(f)
             else:
-                raise TypeError('No Support file format (support : csv, pkl, json, params, log)')
+                raise TypeError('No Support file format (support : pkl, json, params, log)')
                 
             if _print == True:
                 print('Loaded : {}'.format(_data_file))
@@ -65,8 +65,8 @@ def save_file(_data, _data_file, _print=True):
             - 데이터를 파일로 저장한다.
         Parameters
         -----------
-            - data : 파일로 저장할 데이터
-                        (csv) : dataframe
+            - data : 파일로 저장할 데이터 (dict) : dataframe 등 key 포함 
+
             - data_file (str) : 저장할 데이터의 파일이름 (경로 포함)
                                 (확장자 지원 : csv, pkl, json, params, log)
             - option
@@ -76,7 +76,7 @@ def save_file(_data, _data_file, _print=True):
             - save_file(data, data_file)
     """
 
-    if _data_file != 'none' and not (isinstance(_data, str) and _data == 'none') and len(_data) > 0:
+    if _data_file != None and not (isinstance(_data, str) and _data == 'none') and len(_data) > 0:
         try:
             check_path(_data_file)
 
@@ -90,7 +90,7 @@ def save_file(_data, _data_file, _print=True):
                     # ensure_ascii=False : 한글 지원
                     json.dump(_data, f, indent=4, ensure_ascii=False)
             else:
-                raise TypeError('No Support file format (support : csv, h5, tfrecord, pkl, json, params, log)')
+                raise TypeError('No Support file format (support : pkl, json, params, log)')
             
             if _print == True:
                 _msg = f'Saved : {_data_file}'
