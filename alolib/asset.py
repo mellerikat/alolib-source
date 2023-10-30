@@ -160,15 +160,14 @@ class Asset:
                 dir_path = self.asset_envs['artifacts']['.asset_interface'] + self.asset_envs['pipeline'] + "/"
                 if not os.path.exists(dir_path):
                     os.makedirs(dir_path)
-                    self.logger.asset_info(f"<< {dir_path} >> directory created.")
-                else:
-                    self.logger.asset_info(f"Saving config: << {dir_path} >> directory already exists.")
+                    self.logger.asset_info(f"<< {dir_path} >> directory created for << save_config >>")
                 config_file = dir_path + self.asset_envs['step']
                 if type(config) == dict:
                     config_file = config_file + "_config.pkl"
                 else:
                     self.logger.asset_error("The type of data must be << dict >>")
                 save_file(config, config_file)
+                self.asset_config = config 
                 self.asset_envs['save_config'] += 1
             except Exception as e:
                 self.logger.asset_error(str(e))   
@@ -202,7 +201,6 @@ class Asset:
                 file_path = self.asset_envs['artifacts']['.asset_interface'] + self.asset_envs['pipeline'] + "/" + self.asset_envs['prev_step'] + "_data.pkl"
                 data = load_file(file_path)
                 self.asset_envs['load_data'] += 1
-                self.logger.asset_info(f"Successfully loaded data: {file_path}")
                 return data
             except Exception as e:
                 self.logger.asset_error(str(e))     
@@ -222,17 +220,15 @@ class Asset:
                 dir_path = self.asset_envs['artifacts']['.asset_interface'] + self.asset_envs['pipeline'] + "/"
                 if not os.path.exists(dir_path):
                     os.makedirs(dir_path)
-                    self.logger.asset_info(f"<< {dir_path} >> directory created.")
-                else:
-                    self.logger.asset_info(f"Saving data: << {dir_path} >> directory already exists.")
+                    self.logger.asset_info(f"<< {dir_path} >> directory created for << save_data >>")
                 data_file = dir_path + self.asset_envs['step']
                 if type(data) == dict:
                     data_file = data_file + "_data.pkl"
                 else:
                     self.logger.asset_error("The type of data must be << dict >>")
                 save_file(data, data_file)
+                self.asset_data = data
                 self.asset_envs['save_data'] += 1
-                self.logger.asset_info(f"Successfully saved data: {data_file}")
             except Exception as e:
                 self.logger.asset_error(str(e))   
         else: 
