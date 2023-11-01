@@ -100,20 +100,6 @@ class Asset:
         """
         return self.asset_args.copy()
 
-    def load_envs(self):
-        """ Description
-            -----------
-                - Asset 에 필요한 envs를 반환한다.
-            Parameters
-            -----------
-            Return
-            -----------
-                - envs  (dict)
-            Example
-            -----------
-                - envs = load_envs()
-        """
-        return self.asset_envs.copy()
     
     def load_config(self):
         """ Description
