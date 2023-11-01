@@ -64,7 +64,7 @@ class ProcessLogger:
                 },
             },
             "root": {"handlers": ["file_train", "file_inference"], "level": "INFO"},
-            "loggers": {"ERROR": {"level": "ERROR"}, "WARNING": {"level": "WARNING"}, "INFO": {"level": "INFO"}, "META": {"level": "META"}}
+            "loggers": {"ERROR": {"level": "ERROR"}, "WARNING": {"level": "WARNING"}, "INFO": {"level": "INFO"}}
         }
 
     #--------------------------------------------------------------------------------------------------------------------------
@@ -73,13 +73,18 @@ class ProcessLogger:
     def process_meta(self, msg, color='cyan'):
         # print
         time_utc = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S,%f')[:-3]
-        formatted_msg = f"[{time_utc}][PROCESS][META]: {msg}"
+        formatted_msg = f"[{time_utc}][PROCESS][INFO][META]: -{msg}"
         # 어짜피 process_info는 내부 개발자만 쓸거기 때문에 raise ValueError해도 됨 
         self.print_color(formatted_msg, color)
         # file save 
         logging.config.dictConfig(self.process_logging_config)
-        info_logger = logging.getLogger("META") 
-        info_logger.info(f'{msg}')
+        info_logger = logging.getLogger("INFO")
+        
+        # info logger을 meta logger로 상속 (참고: https://www.daleseo.com/python-logging-config/)
+        meta_logger = logging.getLogger("INFO.child")
+        meta_format = logging.Formatter(f"[%(asctime)s][PROCESS][%(levelname)s][META]: %(message)s")
+        meta_logger.setFormatter(meta_format)
+        meta_logger.info(f'{msg}')
         
         
     def process_info(self, msg, color='blue'):
