@@ -64,12 +64,24 @@ class ProcessLogger:
                 },
             },
             "root": {"handlers": ["file_train", "file_inference"], "level": "INFO"},
-            "loggers": {"ERROR": {"level": "ERROR"}, "WARNING": {"level": "WARNING"}, "INFO": {"level": "INFO"}},
+            "loggers": {"ERROR": {"level": "ERROR"}, "WARNING": {"level": "WARNING"}, "INFO": {"level": "INFO"}, "META": {"level": "META"}}
         }
 
     #--------------------------------------------------------------------------------------------------------------------------
     #    Process Logging API
     #--------------------------------------------------------------------------------------------------------------------------
+    def process_meta(self, msg, color='cyan'):
+        # print
+        time_utc = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S,%f')[:-3]
+        formatted_msg = f"[{time_utc}][PROCESS][META]: {msg}"
+        # 어짜피 process_info는 내부 개발자만 쓸거기 때문에 raise ValueError해도 됨 
+        self.print_color(formatted_msg, color)
+        # file save 
+        logging.config.dictConfig(self.process_logging_config)
+        info_logger = logging.getLogger("META") 
+        info_logger.info(f'{msg}')
+        
+        
     def process_info(self, msg, color='blue'):
         # print
         time_utc = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S,%f')[:-3]
