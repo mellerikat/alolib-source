@@ -83,7 +83,7 @@ class ProcessLogger:
         # info logger을 meta logger로 상속 (참고: https://www.daleseo.com/python-logging-config/)
         meta_logger = logging.getLogger("INFO.child")
         meta_format = logging.Formatter(f"[%(asctime)s][PROCESS][%(levelname)s][META]: %(message)s")
-        for i in len(meta_logger.handlers):
+        for i in range(len(meta_logger.handlers)):
             meta_logger.handlers[i].setFormatter(meta_format)
         meta_logger.info(f'{msg}')
         
