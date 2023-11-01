@@ -70,6 +70,7 @@ class ProcessLogger:
     #--------------------------------------------------------------------------------------------------------------------------
     #    Process Logging API
     #--------------------------------------------------------------------------------------------------------------------------
+    # https://velog.io/@qlgks1/python-python-logging-%ED%95%B4%EB%B6%80
     def process_meta(self, msg, color='cyan'):
         # print
         time_utc = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S,%f')[:-3]
@@ -78,12 +79,12 @@ class ProcessLogger:
         self.print_color(formatted_msg, color)
         # file save 
         logging.config.dictConfig(self.process_logging_config)
-        info_logger = logging.getLogger("INFO")
-        
+
         # info logger을 meta logger로 상속 (참고: https://www.daleseo.com/python-logging-config/)
         meta_logger = logging.getLogger("INFO.child")
         meta_format = logging.Formatter(f"[%(asctime)s][PROCESS][%(levelname)s][META]: %(message)s")
-        meta_logger.setFormatter(meta_format)
+        for i in len(meta_logger.handlers):
+            meta_logger.handlers[i].setFormatter(meta_format)
         meta_logger.info(f'{msg}')
         
         
