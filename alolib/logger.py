@@ -48,6 +48,9 @@ class ProcessLogger:
                 "complex": {
                     "format": f"[%(asctime)s][PROCESS][%(levelname)s]: %(message)s"
                 },
+                "meta": {
+                    "format": f"[%(asctime)s][PROCESS][%(levelname)s][META]: %(message)s"
+                }
             },
             "handlers": {
                 "file_train": {
@@ -64,12 +67,49 @@ class ProcessLogger:
                 },
             },
             "root": {"handlers": ["file_train", "file_inference"], "level": "INFO"},
-            "loggers": {"ERROR": {"level": "ERROR"}, "WARNING": {"level": "WARNING"}, "INFO": {"level": "INFO"}},
+            "loggers": {"ERROR": {"level": "ERROR"}, "WARNING": {"level": "WARNING"}, "INFO": {"level": "INFO"}}
         }
-
+        self.meta_logging_config = { 
+            "version": 1,
+            "formatters": {
+                "meta": {
+                    "format": f"[%(asctime)s][PROCESS][META]: %(message)s"
+                }
+            },
+            "handlers": {
+                "file_train": {
+                    "class": "logging.FileHandler",
+                    "filename": self.train_log_path + "process.log", 
+                    "formatter": "meta",
+                    "level": "INFO",
+                },
+                "file_inference": {
+                    "class": "logging.FileHandler",
+                    "filename": self.inference_log_path + "process.log", 
+                    "formatter": "meta",
+                    "level": "INFO",
+                },
+            },
+            "root": {"handlers": ["file_train", "file_inference"], "level": "INFO"},
+            "loggers": {"INFO": {"level": "INFO"}}
+        }
     #--------------------------------------------------------------------------------------------------------------------------
     #    Process Logging API
     #--------------------------------------------------------------------------------------------------------------------------
+    # https://velog.io/@qlgks1/python-python-logging-%ED%95%B4%EB%B6%80
+    def process_meta(self, msg, color='cyan'):
+        # print
+        time_utc = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S,%f')[:-3]
+        formatted_msg = f"[{time_utc}][PROCESS][META]: {msg}"
+        # 어짜피 process_info는 내부 개발자만 쓸거기 때문에 raise ValueError해도 됨 
+        self.print_color(formatted_msg, color)
+        # file save 
+        logging.config.dictConfig(self.meta_logging_config)
+        # info logger을 meta logger로 상속 (참고: https://www.daleseo.com/python-logging-config/)
+        meta_logger = logging.getLogger("INFO")
+        meta_logger.info(f'{msg}')
+        
+        
     def process_info(self, msg, color='blue'):
         # print
         time_utc = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S,%f')[:-3]
