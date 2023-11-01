@@ -97,7 +97,7 @@ class ProcessLogger:
     #    Process Logging API
     #--------------------------------------------------------------------------------------------------------------------------
     # https://velog.io/@qlgks1/python-python-logging-%ED%95%B4%EB%B6%80
-    def process_meta(self, msg, color='pink'):
+    def process_meta(self, msg, color='cyan'):
         # print
         time_utc = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S,%f')[:-3]
         formatted_msg = f"[{time_utc}][PROCESS][META]: {msg}"
