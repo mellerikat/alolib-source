@@ -7,9 +7,6 @@ from pytz import timezone
 
 # FIXME # DeprecationWarning: pkg_resources is deprecated as an API. 해결 필요? 
 import yaml
-import logging
-import logging.config 
-
 from alolib.utils import save_file, load_file
 from alolib.logger import Logger 
 
