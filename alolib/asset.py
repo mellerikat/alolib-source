@@ -464,9 +464,9 @@ class Asset:
     # FIXME : 만약 config, data에 대해서 dict 타입으로 비교할 때 data dict 내에 dataframe 있으면 ValueError: Can only compare identically-labeled DataFrame objects 에러 발생 가능성 존재 
     def decorator_run(func):
         def _run(self, *args, **kwargs):
+            step = self.asset_envs["step"]
+            prev_data, prev_config = self.asset_data, self.asset_config 
             try:
-                step = self.asset_envs["step"]
-                prev_data, prev_config = self.asset_data, self.asset_config 
                 # print asset start info. 
                 self._asset_start_info() 
                 # run user asset 
@@ -480,9 +480,8 @@ class Asset:
                 # input step 이외에, 이번 step에서 사용자가 dataframe이라는 문자를 포함한 key를 새로 추가하지 않았는 지 체크 
                 if step != 'input':
                     self._check_dataframe_key(prev_data)
-                
-            except Exception as e:
-                self.logger.asset_error(str(e))
+            except:
+                self.logger.asset_error(f"Failed to run << {step} >>")
                 
             # print asset finish info.
             self._asset_finish_info()
