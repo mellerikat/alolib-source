@@ -459,9 +459,9 @@ class Asset:
         if len(prev_keys) < len(cur_keys): 
             self.logger.asset_error(f"Do not add keys containing the word << dataframe >> into the output data dict to be saved.:\n You added: {set(cur_keys) - set(prev_keys)}")
         if len(prev_keys) > len(cur_keys): 
-            self.logger.asset_error(f"Do not remove keys contanint ther word << dataframe >>. \n You removed: {set(prev_keys) - set(cur_keys)}")
+            self.logger.asset_error(f"Do not remove keys contaning the word << dataframe >>. \n You removed: {set(prev_keys) - set(cur_keys)}")
         if prev_keys != cur_keys: 
-            self.logger.asset_error(f"Do not modify keys contanint ther word << dataframe >>. \n - Previous step: {prev_keys} \n - Current step: {cur_keys}") 
+            self.logger.asset_error(f"Do not modify keys contaning the word << dataframe >>. \n - Previous step: {prev_keys} \n - Current step: {cur_keys}") 
         
     # TODO : check whether data & config are updated 필요할지? 
     # FIXME : 만약 config, data에 대해서 dict 타입으로 비교할 때 data dict 내에 dataframe 있으면 ValueError: Can only compare identically-labeled DataFrame objects 에러 발생 가능성 존재 
