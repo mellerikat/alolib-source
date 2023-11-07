@@ -453,15 +453,23 @@ class Asset:
     ##################################################################################################################################################################
     
     ##################################################################################################################################################################
-    
+    def _check_dataframe_key(self, prev_data):
+        prev_keys = [i for i in prev_data.keys() if 'dataframe' in i]
+        cur_keys =  [i for i in self.asset_data.keys() if 'dataframe' in i]
+        if len(prev_keys) < len(cur_keys): 
+            self.logger.asset_error(f"Do not add keys containing the word << dataframe >> into the output data dict to be saved.:\n You added: {set(cur_keys) - set(prev_keys)}")
+        if len(prev_keys) > len(cur_keys): 
+            self.logger.asset_error(f"Do not remove keys contanint ther word << dataframe >>. \n You removed: {set(prev_keys) - set(cur_keys)}")
+        if prev_keys != cur_keys: 
+            self.logger.asset_error(f"Do not modify keys contanint ther word << dataframe >>. \n - Previous step: {prev_keys} \n - Current step: {cur_keys}") 
+        
     # TODO : check whether data & config are updated 필요할지? 
     # FIXME : 만약 config, data에 대해서 dict 타입으로 비교할 때 data dict 내에 dataframe 있으면 ValueError: Can only compare identically-labeled DataFrame objects 에러 발생 가능성 존재 
     def decorator_run(func):
         def _run(self, *args, **kwargs):
             try:
                 step = self.asset_envs["step"]
-             
-                #prev_data, prev_config = self.asset_data, self.asset_config 
+                prev_data, prev_config = self.asset_data, self.asset_config 
                 # print asset start info. 
                 self._asset_start_info() 
                 # run user asset 
@@ -470,10 +478,12 @@ class Asset:
                 if (self.asset_envs['save_data'] != 1) or (self.asset_envs['save_config'] != 1):
                         self.logger.asset_error(f"You did not call (or more than once) the \n << self.asset.save_data() >> \
                                             or << self.asset.save_conifg() >> API in the << {step} >> step. \n Both of calls are mandatory.")
-                    
                 if (not isinstance(self.asset_data, dict)) or (not isinstance(self.asset_config, dict)):
                     self.logger.asset_error(f"You should make dict for argument of << self.asset.save_data()>> or << self.asset.save_config() >> \n @ << {step} >> step.")  
-
+                # input step 이외에, 이번 step에서 사용자가 dataframe이라는 문자를 포함한 key를 새로 추가하지 않았는 지 체크 
+                if step != 'input':
+                    self._check_dataframe_key(prev_data)
+                
             except Exception as e:
                 self.logger.asset_error(str(e))
                 
