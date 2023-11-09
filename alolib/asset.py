@@ -12,8 +12,6 @@ from alolib.logger import Logger
 #--------------------------------------------------------------------------------------------------------------------------
 #    GLOBAL VARIABLE
 #--------------------------------------------------------------------------------------------------------------------------
-## FIXME (임시) system interface version 
-SYSTEM_INTERFACE_VERSION = 1.0
 ## inference output format 
 # FIXME 대문자 일단 비허용 
 CSV_FORMATS = {"*.csv"}
@@ -50,6 +48,9 @@ class Asset:
             self.asset_envs = asset_structure.envs
             self.alo_version = self.asset_envs['alo_version']
             self.asset_branch = self.asset_envs['asset_branch']
+            self.solution_metadata_version = self.asset_envs['solution_metadata_version']
+            self.save_artifacts_path = self.asset_envs['save_train_artifacts_path'] if self.asset_envs['pipeline'] == 'train_pipeline' else self.asset_envs['save_inference_artifacts_path']
+            self.proc_start_time = self.asset_envs['proc_start_time'] # alo runs start time 
             # API 호출 했는 지 count 
             for k in ['load_data', 'load_config', 'save_data', 'save_config']:
                 self.asset_envs[k] = 0 
@@ -293,11 +294,10 @@ class Asset:
            
         # FIXME .inference_artifacts/output/[현재 step >> 대부분 inference일 것] 내에 output 파일이 없으면 에러         
         output_file_path = self.artifact_dir + 'output/' + self.asset_envs['step']
-        if len(os.listdir())==0:
+        if len(os.listdir(output_file_path))==0:
             self.logger.asset_error("Failed to save summary. Please generate inference output files first. \n (ex. output.csv, output.jpg)")
         
-        # file_info_dict 생성 / .inference_artifacts/output 내의 파일의 확장자가 지원하지 않는 타입이면 에러 
-        file_info_dict = {'csv':[], 'image':[]}
+        # .inference_artifacts/output 내의 파일의 확장자가 지원하지 않는 타입이면 에러 
         for output_file in os.listdir(output_file_path):
             _, extension = os.path.splitext(output_file)
             # 확장자 대문자로 입력했으면 에러 
@@ -306,13 +306,15 @@ class Asset:
             # 확장자가 지원하지 않는 타입이면 에러 
             if '*' + extension not in CSV_FORMATS.union(IMAGE_FORMATS): 
                 self.logger.asset_error(f"Unsupported type of extension: {output_file} \n >> Available extensions: {CSV_FORMATS.union(IMAGE_FORMATS)} \n (ex. output.csv, output.jpg)")
-            # file_info의 csv key에 값 추가 
-            if '*' + extension in CSV_FORMATS: 
-                file_info_dict['csv'].append(output_file)
-            # file_info의 image key에 값 추가           
-            if '*' + extension in IMAGE_FORMATS: 
-                file_info_dict['image'].append(output_file)
-        
+
+        # file_path 생성
+        file_path = None     
+        artifact_file_name = self.proc_start_time + self.artifact_dir[:-1].replace('.', '_') + '.tar.gz' # ex. 231108_192051_inference_artifacts.tar.gz
+        if self.save_artifacts_path is None: 
+            mode = self.asset_envs['pipeline'].split('_')[0] # train or inference
+            self.logger.asset_warning(f"Please enter the << external_path - save_{mode}_artifacts_path >> in the experimental_plan.yaml.")
+        else: 
+            file_path = self.save_artifacts_path + artifact_file_name
         # FIXME 배포 테스트 시 probability의 key 값 (클래스)도 정확히 모든 값 기입 됐는지 체크 필요     
         # dict type data to be saved in summary yaml 
         summary_data = {
@@ -322,8 +324,8 @@ class Asset:
             # FIXME note에 input file 명 전달할 방법 고안 필요 
             'note': note,
             'probability': make_addup_1(probability),
-            'file_info': file_info_dict, 
-            'version': SYSTEM_INTERFACE_VERSION
+            'file_path': file_path, 
+            'version': self.solution_metadata_version
         }
         # self.asset_envs['pipeline'] 는 main.py에서 설정 
         if self.asset_envs['pipeline']  == "train_pipeline":

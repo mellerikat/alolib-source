@@ -322,7 +322,7 @@ class Logger:
     def asset_warning(self, msg):
         # stdout
         time_utc = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S,%f')[:-3]
-        formatted_msg = f"[{time_utc}][ASSET][INFO][{self.asset_envs['pipeline']}][{self.asset_envs['step']}]: {msg}"
+        formatted_msg = f"[{time_utc}][ASSET][WARNING][{self.asset_envs['pipeline']}][{self.asset_envs['step']}]: {msg}"
         self.print_color(formatted_msg, 'yellow')
         # log file save 
         logging.config.dictConfig(self.asset_logging_config) # file handler only logging config 
