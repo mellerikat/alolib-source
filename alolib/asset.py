@@ -228,7 +228,7 @@ class Asset:
         
 
     # FIXME 사실 save summary 는 inference pipeline에서만 실행하겠지만, 현 코드는 train에서도 되긴하는 구조 
-    def save_summary(self, result, score, note="AI Advisor", probability=None):
+    def save_summary(self, result, score, note="", probability={}):
         
         """ Description
             -----------
@@ -308,13 +308,21 @@ class Asset:
                 self.logger.asset_error(f"Unsupported type of extension: {output_file} \n >> Available extensions: {CSV_FORMATS.union(IMAGE_FORMATS)} \n (ex. output.csv, output.jpg)")
 
         # file_path 생성
-        file_path = None     
+        file_path = ""     
         artifact_file_name = self.proc_start_time + self.artifact_dir[:-1].replace('.', '_') + '.tar.gz' # ex. 231108_192051_inference_artifacts.tar.gz
         if self.save_artifacts_path is None: 
             mode = self.asset_envs['pipeline'].split('_')[0] # train or inference
             self.logger.asset_warning(f"Please enter the << external_path - save_{mode}_artifacts_path >> in the experimental_plan.yaml.")
         else: 
             file_path = self.save_artifacts_path + artifact_file_name
+        
+        # version은 str type으로 포맷팅 
+        ver = ""
+        if self.solution_metadata_version == None: 
+            self.solution_metadata_version = ""
+        else: 
+            ver = 'v'.join(str(self.solution_metadata_version))
+        
         # FIXME 배포 테스트 시 probability의 key 값 (클래스)도 정확히 모든 값 기입 됐는지 체크 필요     
         # dict type data to be saved in summary yaml 
         summary_data = {
@@ -325,7 +333,7 @@ class Asset:
             'note': note,
             'probability': make_addup_1(probability),
             'file_path': file_path, 
-            'version': self.solution_metadata_version
+            'version': ver
         }
         # self.asset_envs['pipeline'] 는 main.py에서 설정 
         if self.asset_envs['pipeline']  == "train_pipeline":
