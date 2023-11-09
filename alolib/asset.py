@@ -321,7 +321,7 @@ class Asset:
         if self.solution_metadata_version == None: 
             self.solution_metadata_version = ""
         else: 
-            ver = 'v'.join(str(self.solution_metadata_version))
+            ver = 'v' + str(self.solution_metadata_version)
         
         # FIXME 배포 테스트 시 probability의 key 값 (클래스)도 정확히 모든 값 기입 됐는지 체크 필요     
         # dict type data to be saved in summary yaml 
