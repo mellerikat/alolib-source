@@ -4,12 +4,20 @@ import os
 import pkg_resources 
 from datetime import datetime
 from pytz import timezone
-
 # FIXME # DeprecationWarning: pkg_resources is deprecated as an API. 해결 필요? 
 import yaml
 from alolib.utils import save_file, load_file
 from alolib.logger import Logger 
 
+#--------------------------------------------------------------------------------------------------------------------------
+#    GLOBAL VARIABLE
+#--------------------------------------------------------------------------------------------------------------------------
+## FIXME (임시) system interface version 
+SYSTEM_INTERFACE_VERSION = 1.0
+## inference output format 
+# FIXME 대문자 일단 비허용 
+CSV_FORMATS = {"*.csv"}
+IMAGE_FORMATS = {"*.jpg", "*.jpeg", "*.png"}
 #--------------------------------------------------------------------------------------------------------------------------
 #    CLASS
 #--------------------------------------------------------------------------------------------------------------------------
@@ -218,7 +226,7 @@ class Asset:
             self.logger.asset_error(f"Only << file >> or << memory >> is supported for << interface_mode >>")  
         
 
-    
+    # FIXME 사실 save summary 는 inference pipeline에서만 실행하겠지만, 현 코드는 train에서도 되긴하는 구조 
     def save_summary(self, result, score, note="AI Advisor", probability=None):
         
         """ Description
@@ -282,7 +290,28 @@ class Asset:
                 proc_prob_dict[k] = round(v, 2) # 소수 둘째자리
             proc_prob_dict[max_value_key] = round(1 - sum(proc_prob_dict.values()), 2)
             return proc_prob_dict
-                    
+           
+        # FIXME .inference_artifacts/output/[현재 step >> 대부분 inference일 것] 내에 output 파일이 없으면 에러         
+        output_file_path = self.artifact_dir + 'output/' + self.asset_envs['step']
+        if len(os.listdir())==0:
+            self.logger.asset_error("Failed to save summary. Please generate inference output files first. \n (ex. output.csv, output.jpg)")
+        
+        # file_info_dict 생성 / .inference_artifacts/output 내의 파일의 확장자가 지원하지 않는 타입이면 에러 
+        file_info_dict = {'csv':[], 'image':[]}
+        for output_file in os.listdir(output_file_path):
+            _, extension = os.path.splitext(output_file)
+            # 확장자 대문자로 입력했으면 에러 
+            if extension.isupper() == True: 
+                self.logger.asset_error(f"Please save the inference output file extension in lowercase letters. \n You entered: {output_file}")
+            # 확장자가 지원하지 않는 타입이면 에러 
+            if '*' + extension not in CSV_FORMATS.union(IMAGE_FORMATS): 
+                self.logger.asset_error(f"Unsupported type of extension: {output_file} \n >> Available extensions: {CSV_FORMATS.union(IMAGE_FORMATS)} \n (ex. output.csv, output.jpg)")
+            # file_info의 csv key에 값 추가 
+            if '*' + extension in CSV_FORMATS: 
+                file_info_dict['csv'].append(output_file)
+            # file_info의 image key에 값 추가           
+            if '*' + extension in IMAGE_FORMATS: 
+                file_info_dict['image'].append(output_file)
         
         # FIXME 배포 테스트 시 probability의 key 값 (클래스)도 정확히 모든 값 기입 됐는지 체크 필요     
         # dict type data to be saved in summary yaml 
@@ -292,7 +321,9 @@ class Asset:
             'date':  datetime.now(timezone('UTC')).strftime('%Y-%m-%d %H:%M:%S'), 
             # FIXME note에 input file 명 전달할 방법 고안 필요 
             'note': note,
-            'probability': make_addup_1(probability)
+            'probability': make_addup_1(probability),
+            'file_info': file_info_dict, 
+            'version': SYSTEM_INTERFACE_VERSION
         }
         # self.asset_envs['pipeline'] 는 main.py에서 설정 
         if self.asset_envs['pipeline']  == "train_pipeline":
@@ -306,6 +337,7 @@ class Asset:
         try:      
             with open(file_path, 'w') as file:
                 yaml.dump(summary_data, file, default_flow_style=False)
+            self.logger.asset_info(f"Successfully saved inference summary yaml. \n >> {file_path}", color='green')
         except: 
             self.logger.asset_error(f"Failed to save summary yaml file \n @ << {file_path} >>")
              

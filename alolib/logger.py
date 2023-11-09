@@ -300,7 +300,7 @@ class Logger:
         error_logger = logging.getLogger("ERROR") 
         error_logger.error(f'{formatted_msg}')
         
-        raise ValueError(formatted_msg)
+        #raise ValueError(formatted_msg)
     
     #--------------------------------------------------------------------------------------------------------------------------
     #    ALO Internal Logging
@@ -345,8 +345,7 @@ class Logger:
         # log file save 
         logging.config.dictConfig(self.asset_logging_config) # file handler only logging config 
         error_logger = logging.getLogger("ERROR") 
-        error_logger.error(f'{formatted_msg}')
-        
+        error_logger.error(f'{formatted_msg}') #, exc_info=True) #, stack_info=True, exc_info=True)
         raise ValueError(formatted_msg)
     
     #--------------------------------------------------------------------------------------------------------------------------
