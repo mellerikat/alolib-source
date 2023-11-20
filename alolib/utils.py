@@ -7,7 +7,56 @@ import re
 import psutil
 import pickle
 import json 
+from datetime import datetime
 
+def backup_error_artifacts(project_home):
+    """ Description
+        -----------
+            - 파이프라인 실행 종료 후 사용한 yaml과 결과 artifacts를 .history에 백업함 
+        Parameters
+        -----------
+            - project_home: project home absolute path ~ str
+
+        Return
+        -----------
+            - 'OK'
+        Example
+        -----------
+            - backup_artifacts('/~/~/alo/')
+    """
+    PROJECT_HOME = project_home
+
+    try:
+        error_occur_time = datetime.now().strftime("%y%m%d_%H%M%S")
+    
+        # ALO에서 일반적으로 잘 수행된 backup artifacts 폴더 명은 프로세스 시작시간으로 시작하지만, error 발생 시엔 error_에러발생시간_~ 으로 폴더명 지정 
+        backup_folder= f'{error_occur_time}_artifacts_error/'
+        # TODO current_pipelines 는 차후에 workflow name으로 변경이 필요
+        temp_backup_artifacts_dir = PROJECT_HOME + backup_folder
+        
+        # 임시 저장 폴더 만들기
+        if os.path.exists(temp_backup_artifacts_dir):
+            shutil.rmtree(temp_backup_artifacts_dir) 
+        os.mkdir(temp_backup_artifacts_dir)
+        
+        # FIXME 어떤 plan yaml 파일을 썼는지 받아오기 어려우므로 config 폴더 통 째로 임시 폴더로 copy 하기 
+        shutil.copytree(PROJECT_HOME + 'config', temp_backup_artifacts_dir + 'config')
+        # 임시 폴더에 artifacts 들을 백업 (train, inference 상관없이)
+        shutil.copytree(PROJECT_HOME + ".train_artifacts", temp_backup_artifacts_dir + ".train_artifacts")
+        shutil.copytree(PROJECT_HOME + ".inference_artifacts", temp_backup_artifacts_dir + ".inference_artifacts")
+            
+        # 임시 폴더를 .history 밑으로 이동 
+        shutil.move(temp_backup_artifacts_dir, PROJECT_HOME + ".history/")
+        # 잘 move 됐는 지 확인  
+        if os.path.exists(PROJECT_HOME + ".history/" + backup_folder):
+            return 'OK'
+    except:
+        raise NotImplementedError("Failed to backup error artifacts.")
+    finally:
+        if os.path.exists(temp_backup_artifacts_dir):
+            shutil.rmtree(temp_backup_artifacts_dir) # copy 실패 시 임시 backup_artifacts_home 폴더 삭제 
+    
+    
 # FIXME load_file 함수 print, error 함수 변경필요 
 def load_file(_data_file, _print=True):
     """ Description

@@ -309,12 +309,11 @@ class Asset:
 
         # file_path 생성
         file_path = ""     
-        artifact_file_name = self.proc_start_time + self.artifact_dir[:-1].replace('.', '_') + '.tar.gz' # ex. 231108_192051_inference_artifacts.tar.gz
         if self.save_artifacts_path is None: 
             mode = self.asset_envs['pipeline'].split('_')[0] # train or inference
             self.logger.asset_warning(f"Please enter the << external_path - save_{mode}_artifacts_path >> in the experimental_plan.yaml.")
         else: 
-            file_path = self.save_artifacts_path + artifact_file_name
+            file_path = self.save_artifacts_path 
         
         # version은 str type으로 포맷팅 
         ver = ""

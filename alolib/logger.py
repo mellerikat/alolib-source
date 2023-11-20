@@ -2,6 +2,7 @@ import os
 import logging
 import logging.config
 from datetime import datetime
+from alolib.utils import backup_error_artifacts
 
 #--------------------------------------------------------------------------------------------------------------------------
 #    GLOBAL VARIABLE
@@ -144,12 +145,14 @@ class ProcessLogger:
         logging.config.dictConfig(self.process_logging_config)
         error_logger = logging.getLogger("ERROR") 
         error_logger.error(f'{msg}')
-        
-        raise ValueError(formatted_msg)  
+        # FIXME train만 돌든 inference만 돌든 일단 artifacts 폴더는 둘다 만들기 때문에 process error도 둘 다에 백업 
+        try:
+            backup_error_artifacts(self.project_home)
+        except: 
+            raise NotImplementedError("Failed to backup artifacts before raising << process error >>")
+        finally: 
+            raise ValueError(formatted_msg)  
 
-    #--------------------------------------------------------------------------------------------------------------------------
-    #   Common Functions 
-    #--------------------------------------------------------------------------------------------------------------------------
     
     def print_color(self, msg, _color):
         """ Description
@@ -168,13 +171,17 @@ class ProcessLogger:
         if _color.upper() in COLOR_DICT.keys():
             print(COLOR_DICT[_color.upper()] + msg+COLOR_END)
         else:
-            raise ValueError('[ASSET][ERROR] print_color() Error. - selected color : {}'.format(COLOR_DICT.keys()))
-                    
+            raise ValueError('[ASSET][ERROR] print_color() function call error. - selected color : {}'.format(COLOR_DICT.keys()))
+
+    
 class Logger: 
     # [%(filename)s:%(lineno)d]
     # envs 미입력 시 설치 과정, 프로세스 진행 과정 등 전체 과정 보기 위한 로그 생성 
     def __init__(self, envs):
         self.asset_envs = envs
+        self.project_home = self.asset_envs['project_home']
+        self.pipeline = self.asset_envs['pipeline']
+        self.step = self.asset_envs['step']
         try: 
             self.log_file_path = self.asset_envs['log_file_path']
         except: 
@@ -186,7 +193,7 @@ class Logger:
             "version": 1,
             "formatters": {
                 "complex": {
-                    "format": f"[%(asctime)s][USER][%(levelname)s][{self.asset_envs['pipeline']}][{self.asset_envs['step']}]: %(message)s"
+                    "format": f"[%(asctime)s][USER][%(levelname)s][{self.pipeline}][{self.step}]: %(message)s"
                     #"datefmt": '%Y-%m-%d %H:%M:%S'
                 },
             },
@@ -214,7 +221,7 @@ class Logger:
             "version": 1,
             "formatters": {
                 "complex": {
-                    "format": f"[%(asctime)s][ASSET][%(levelname)s][{self.asset_envs['pipeline']}][{self.asset_envs['step']}]: %(message)s"
+                    "format": f"[%(asctime)s][ASSET][%(levelname)s][{self.pipeline}][{self.step}]: %(message)s"
                     #"datefmt": '%Y-%m-%d %H:%M:%S'
                 },
             },
@@ -292,15 +299,21 @@ class Logger:
         formatted_msg = "".join([
             f"\n\n============================= USER ERROR =============================\n",
             f"TIME(UTC)   : {time_utc}\n",
-            f"PIPELINE    : {self.asset_envs['pipeline']}\n",
-            f"STEP        : {self.asset_envs['step']}\n",
+            f"PIPELINE    : {self.pipeline}\n",
+            f"STEP        : {self.step}\n",
             f"ERROR(msg)  : {msg}\n",
             f"=======================================================================\n\n"])
         logging.config.dictConfig(self.user_logging_config)
         error_logger = logging.getLogger("ERROR") 
         error_logger.error(f'{formatted_msg}')
-        
-        #raise ValueError(formatted_msg)
+
+        try:
+            backup_error_artifacts(self.project_home)
+        except: 
+            raise NotImplementedError("Failed to backup artifacts before raising << process error >>")
+        finally: 
+            raise ValueError(formatted_msg)  
+
     
     #--------------------------------------------------------------------------------------------------------------------------
     #    ALO Internal Logging
@@ -309,7 +322,7 @@ class Logger:
     def asset_info(self, msg, color='blue'): # color는 blue, green만 제공 
         # stdout 
         time_utc = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S,%f')[:-3]
-        formatted_msg = f"[{time_utc}][ASSET][INFO][{self.asset_envs['pipeline']}][{self.asset_envs['step']}]: {msg}"
+        formatted_msg = f"[{time_utc}][ASSET][INFO][{self.pipeline}][{self.step}]: {msg}"
         if color not in ['blue', 'green']:
             self.asset_error(f"[ASSET][ERROR] only << blue >> or << green >> is allowed for asset_info()")
         self.print_color(formatted_msg, color)
@@ -322,7 +335,7 @@ class Logger:
     def asset_warning(self, msg):
         # stdout
         time_utc = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S,%f')[:-3]
-        formatted_msg = f"[{time_utc}][ASSET][WARNING][{self.asset_envs['pipeline']}][{self.asset_envs['step']}]: {msg}"
+        formatted_msg = f"[{time_utc}][ASSET][WARNING][{self.pipeline}][{self.step}]: {msg}"
         self.print_color(formatted_msg, 'yellow')
         # log file save 
         logging.config.dictConfig(self.asset_logging_config) # file handler only logging config 
@@ -338,19 +351,21 @@ class Logger:
         formatted_msg = "".join([
             f"\n\n============================= ASSET ERROR =============================\n",
             f"TIME(UTC)   : {time_utc}\n",
-            f"PIPELINE    : {self.asset_envs['pipeline']}\n",
-            f"STEP        : {self.asset_envs['step']}\n",
+            f"PIPELINE    : {self.pipeline}\n",
+            f"STEP        : {self.step}\n",
             f"ERROR(msg)  : {msg}\n",
             f"=======================================================================\n\n"])
         # log file save 
         logging.config.dictConfig(self.asset_logging_config) # file handler only logging config 
         error_logger = logging.getLogger("ERROR") 
         error_logger.error(f'{formatted_msg}') #, exc_info=True) #, stack_info=True, exc_info=True)
-        raise ValueError(formatted_msg)
-    
-    #--------------------------------------------------------------------------------------------------------------------------
-    #   Common Functions 
-    #--------------------------------------------------------------------------------------------------------------------------
+        try:
+            backup_error_artifacts(self.project_home)
+        except: 
+            raise NotImplementedError("Failed to backup artifacts before raising << process error >>")
+        finally: 
+            raise ValueError(formatted_msg)  
+
     
     def print_color(self, msg, _color):
         """ Description
@@ -369,4 +384,10 @@ class Logger:
         if _color.upper() in COLOR_DICT.keys():
             print(COLOR_DICT[_color.upper()] + msg+COLOR_END)
         else:
-            raise ValueError('[ASSET][ERROR] print_color() Error. - selected color : {}'.format(COLOR_DICT.keys()))
+            raise ValueError('[ASSET][ERROR] print_color() function call error. - selected color : {}'.format(COLOR_DICT.keys()))
+
+
+#--------------------------------------------------------------------------------------------------------------------------
+#   Common Functions 
+#--------------------------------------------------------------------------------------------------------------------------
+
