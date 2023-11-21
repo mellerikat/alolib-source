@@ -147,7 +147,7 @@ class ProcessLogger:
         error_logger.error(f'{msg}')
         # FIXME train만 돌든 inference만 돌든 일단 artifacts 폴더는 둘다 만들기 때문에 process error도 둘 다에 백업 
         try:
-            backup_error_artifacts(self.project_home)
+            backup_error_artifacts('process', self.project_home)
         except: 
             raise NotImplementedError("Failed to backup artifacts before raising << process error >>")
         finally: 
@@ -279,7 +279,6 @@ class Logger:
         warning_logger.warning(f'{msg}')
 
 
-    # TODO save error 하면 마지막에 error를 pipeline.log 저장하고 죽는지 확인 필요 
     def user_error(self, msg):
         """Description
             -----------
@@ -306,13 +305,8 @@ class Logger:
         logging.config.dictConfig(self.user_logging_config)
         error_logger = logging.getLogger("ERROR") 
         error_logger.error(f'{formatted_msg}')
-
-        try:
-            backup_error_artifacts(self.project_home)
-        except: 
-            raise NotImplementedError("Failed to backup artifacts before raising << process error >>")
-        finally: 
-            raise ValueError(formatted_msg)  
+   
+        raise ValueError(formatted_msg)  
 
     
     #--------------------------------------------------------------------------------------------------------------------------
@@ -360,7 +354,7 @@ class Logger:
         error_logger = logging.getLogger("ERROR") 
         error_logger.error(f'{formatted_msg}') #, exc_info=True) #, stack_info=True, exc_info=True)
         try:
-            backup_error_artifacts(self.project_home)
+            backup_error_artifacts('asset', self.project_home)
         except: 
             raise NotImplementedError("Failed to backup artifacts before raising << process error >>")
         finally: 
@@ -391,12 +385,15 @@ class Logger:
 #   Common Functions 
 #--------------------------------------------------------------------------------------------------------------------------
 
-def backup_error_artifacts(project_home):
+# [중요] user error의 경우 어짜피 decorator run에서 asset error 한번 더 뜨므로 backup_error_artifacts 하지 않음 
+# [중요] process error와 asset error는 폴더 이름으로 구분함. 
+def backup_error_artifacts(prefix, project_home):
     """ Description
         -----------
             - 파이프라인 실행 종료 후 사용한 yaml과 결과 artifacts를 .history에 백업함 
         Parameters
         -----------
+            - prefix: process, asset ~ str
             - project_home: project home absolute path ~ str
 
         Return
@@ -404,7 +401,7 @@ def backup_error_artifacts(project_home):
             - 'OK'
         Example
         -----------
-            - backup_artifacts('/~/~/alo/')
+            - backup_artifacts('asset', '/~/~/alo/')
     """
     PROJECT_HOME = project_home
 
@@ -412,7 +409,7 @@ def backup_error_artifacts(project_home):
         error_occur_time = datetime.now().strftime("%y%m%d_%H%M%S")
     
         # ALO에서 일반적으로 잘 수행된 backup artifacts 폴더 명은 프로세스 시작시간으로 시작하지만, error 발생 시엔 error_에러발생시간_~ 으로 폴더명 지정 
-        backup_folder= f'{error_occur_time}_artifacts_error/'
+        backup_folder= f'{error_occur_time}_artifacts_{prefix}_error/'
         # TODO current_pipelines 는 차후에 workflow name으로 변경이 필요
         temp_backup_artifacts_dir = PROJECT_HOME + backup_folder
         
