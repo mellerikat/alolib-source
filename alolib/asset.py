@@ -228,7 +228,31 @@ class Asset:
         else: 
             self.logger.asset_error(f"Only << file >> or << memory >> is supported for << interface_mode >>")  
         
+    def load_summary(self):
+        yaml_dict = dict()
+        yaml_file_path = None 
+        
+        # self.asset_envs['pipeline'] 는 main.py에서 설정 
+        if self.asset_envs['pipeline']  == "train_pipeline":
+            yaml_file_path = self.asset_envs["artifacts"][".train_artifacts"] + "score/" + "train_summary.yaml" 
+        elif self.asset_envs['pipeline'] == "inference_pipeline":
+            yaml_file_path = self.asset_envs["artifacts"][".inference_artifacts"] + "score/" + "inference_summary.yaml" 
+        else: 
+            self.logger.asset_error(f"You have written wrong value for << asset_source  >> in the config yaml file. - { self.asset_envs['pipeline']} \n Only << train_pipeline >> and << inference_pipeline >> are permitted")
 
+        # 이전의 asset 들 중에서 save_summary를 이미 한 상태여야 summary yaml 파일이 존재할 것이고, load가 가능함 
+        if os.path.exists(yaml_file_path):
+            try:
+                with open(yaml_file_path, encoding='UTF-8') as f:
+                    yaml_dict  = yaml.load(f, Loader=yaml.FullLoader)
+            except:
+                self.logger.asset_error(f"Failed to call << load_summary>>. \n - summary yaml file path : {yaml_file_path}")
+        else: 
+            self.logger.asset_error(f"Failed to call << load_summary>>. \n You did not call << save_summary >> in previous assets before calling << load_summary >>")
+        
+        return yaml_dict 
+    
+    
     # FIXME 사실 save summary 는 inference pipeline에서만 실행하겠지만, 현 코드는 train에서도 되긴하는 구조 
     def save_summary(self, result, score, note="", probability={}):
         
@@ -311,6 +335,7 @@ class Asset:
 
         # file_path 생성
         file_path = ""     
+        # external save artifacts path 
         if self.save_artifacts_path is None: 
             mode = self.asset_envs['pipeline'].split('_')[0] # train or inference
             self.logger.asset_warning(f"Please enter the << external_path - save_{mode}_artifacts_path >> in the experimental_plan.yaml.")
@@ -333,9 +358,10 @@ class Asset:
             # FIXME note에 input file 명 전달할 방법 고안 필요 
             'note': note,
             'probability': make_addup_1(probability),
-            'file_path': file_path, 
+            'file_path': file_path,  # external save artifacts path
             'version': ver
         }
+
         # self.asset_envs['pipeline'] 는 main.py에서 설정 
         if self.asset_envs['pipeline']  == "train_pipeline":
             file_path = self.asset_envs["artifacts"][".train_artifacts"] + "score/" + "train_summary.yaml" 
