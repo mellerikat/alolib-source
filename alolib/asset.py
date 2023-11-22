@@ -296,15 +296,18 @@ class Asset:
             self.logger.asset_error("The type of argument << probability >> must be << dict >>")
             
         # probability key는 string이고 value는 float or int인지 확인 
-        key_chk_str_set = set([isinstance(k, str) for k in probability.keys()])
-        value_type_set = set([type(v) for v in probability.values()])
-        if key_chk_str_set != {True}: 
-            self.logger.asset_error("The key of dict argument << probability >> must have the type of << str >> ")
-        if not value_type_set.issubset({float, int}): 
-            self.logger.asset_error("The value of dict argument << probability >> must have the type of << int >> or << float >> ")
-        # probability value 합이 1인지 확인 
-        if sum(probability.values()) != 1: 
-            self.logger.asset_error("The sum of probability dict values must be << 1.0 >>")
+        if len(probability.keys()) > 0: # {} 일수 있으므로 (default도 {}이고)
+            key_chk_str_set = set([isinstance(k, str) for k in probability.keys()])
+            value_type_set = set([type(v) for v in probability.values()])
+            if key_chk_str_set != {True}: 
+                self.logger.asset_error("The key of dict argument << probability >> must have the type of << str >> ")
+            if not value_type_set.issubset({float, int}): 
+                self.logger.asset_error("The value of dict argument << probability >> must have the type of << int >> or << float >> ")
+            # probability value 합이 1인지 확인 
+            if sum(probability.values()) != 1: 
+                self.logger.asset_error("The sum of probability dict values must be << 1.0 >>")
+        else:
+            pass 
         
         # FIXME 가령 0.50001, 0.49999 같은건 대응이 안됨 
         # FIXME 처음에 사용자가 입력한 dict가 합 1인지도 체크필요 > 부동소수 에러 예상
@@ -318,7 +321,12 @@ class Asset:
                 proc_prob_dict[k] = round(v, 2) # 소수 둘째자리
             proc_prob_dict[max_value_key] = round(1 - sum(proc_prob_dict.values()), 2)
             return proc_prob_dict
-           
+        
+        if (probability != None) and (probability != {}): 
+            probability = make_addup_1(probability)
+        else: 
+            probability = {}
+        
         # FIXME .inference_artifacts/output/[현재 step >> 대부분 inference일 것] 내에 output 파일이 없으면 에러         
         output_file_path = self.artifact_dir + 'output/' + self.asset_envs['step']
         if len(os.listdir(output_file_path))==0:
@@ -358,7 +366,7 @@ class Asset:
             'date':  datetime.now(timezone('UTC')).strftime('%Y-%m-%d %H:%M:%S'), 
             # FIXME note에 input file 명 전달할 방법 고안 필요 
             'note': note,
-            'probability': make_addup_1(probability),
+            'probability': probability,
             'file_path': file_path,  # external save artifacts path
             'version': ver
         }
