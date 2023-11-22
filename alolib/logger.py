@@ -410,12 +410,12 @@ def backup_error_artifacts(prefix, project_home):
     
         # ALO에서 일반적으로 잘 수행된 backup artifacts 폴더 명은 프로세스 시작시간으로 시작하지만, error 발생 시엔 error_에러발생시간_~ 으로 폴더명 지정 
         backup_folder= f'{error_occur_time}_artifacts_{prefix}_error/'
-        # FIXME 임시 코드 
-        if os.path.exists(PROJECT_HOME + ".history/" + backup_folder):
-            return 
+  
         # TODO current_pipelines 는 차후에 workflow name으로 변경이 필요
         temp_backup_artifacts_dir = PROJECT_HOME + backup_folder
-        
+        # FIXME 임시 코드 
+        if os.path.exists(PROJECT_HOME + ".history/" + backup_folder):
+            return       
         # 임시 저장 폴더 만들기
         if os.path.exists(temp_backup_artifacts_dir):
             shutil.rmtree(temp_backup_artifacts_dir) 

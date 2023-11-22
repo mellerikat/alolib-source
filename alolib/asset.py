@@ -92,8 +92,7 @@ class Asset:
         
     def save_error(self, msg):
         self.logger.user_error(msg)
-        # FIXME 방어용 임시코드
-        print(msg)
+
         
     def load_args(self):
         """ Description
