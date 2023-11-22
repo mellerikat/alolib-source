@@ -4,15 +4,20 @@ import os
 import pkg_resources 
 from datetime import datetime
 from pytz import timezone
-
 # FIXME # DeprecationWarning: pkg_resources is deprecated as an API. 해결 필요? 
 import yaml
-import logging
-import logging.config 
-
-from alolib.utils import save_file, load_file
+import pickle
+import json 
+import shutil
 from alolib.logger import Logger 
 
+#--------------------------------------------------------------------------------------------------------------------------
+#    GLOBAL VARIABLE
+#--------------------------------------------------------------------------------------------------------------------------
+## inference output format 
+# FIXME 대문자 일단 비허용 
+CSV_FORMATS = {"*.csv"}
+IMAGE_FORMATS = {"*.jpg", "*.jpeg", "*.png"}
 #--------------------------------------------------------------------------------------------------------------------------
 #    CLASS
 #--------------------------------------------------------------------------------------------------------------------------
@@ -45,6 +50,9 @@ class Asset:
             self.asset_envs = asset_structure.envs
             self.alo_version = self.asset_envs['alo_version']
             self.asset_branch = self.asset_envs['asset_branch']
+            self.solution_metadata_version = self.asset_envs['solution_metadata_version']
+            self.save_artifacts_path = self.asset_envs['save_train_artifacts_path'] if self.asset_envs['pipeline'] == 'train_pipeline' else self.asset_envs['save_inference_artifacts_path']
+            self.proc_start_time = self.asset_envs['proc_start_time'] # alo runs start time 
             # API 호출 했는 지 count 
             for k in ['load_data', 'load_config', 'save_data', 'save_config']:
                 self.asset_envs[k] = 0 
@@ -220,9 +228,33 @@ class Asset:
         else: 
             self.logger.asset_error(f"Only << file >> or << memory >> is supported for << interface_mode >>")  
         
+    def load_summary(self):
+        yaml_dict = dict()
+        yaml_file_path = None 
+        
+        # self.asset_envs['pipeline'] 는 main.py에서 설정 
+        if self.asset_envs['pipeline']  == "train_pipeline":
+            yaml_file_path = self.asset_envs["artifacts"][".train_artifacts"] + "score/" + "train_summary.yaml" 
+        elif self.asset_envs['pipeline'] == "inference_pipeline":
+            yaml_file_path = self.asset_envs["artifacts"][".inference_artifacts"] + "score/" + "inference_summary.yaml" 
+        else: 
+            self.logger.asset_error(f"You have written wrong value for << asset_source  >> in the config yaml file. - { self.asset_envs['pipeline']} \n Only << train_pipeline >> and << inference_pipeline >> are permitted")
 
+        # 이전의 asset 들 중에서 save_summary를 이미 한 상태여야 summary yaml 파일이 존재할 것이고, load가 가능함 
+        if os.path.exists(yaml_file_path):
+            try:
+                with open(yaml_file_path, encoding='UTF-8') as f:
+                    yaml_dict  = yaml.load(f, Loader=yaml.FullLoader)
+            except:
+                self.logger.asset_error(f"Failed to call << load_summary>>. \n - summary yaml file path : {yaml_file_path}")
+        else: 
+            self.logger.asset_error(f"Failed to call << load_summary>>. \n You did not call << save_summary >> in previous assets before calling << load_summary >>")
+        
+        return yaml_dict 
     
-    def save_summary(self, result, score, note="AI Advisor", probability=None):
+    
+    # FIXME 사실 save summary 는 inference pipeline에서만 실행하겠지만, 현 코드는 train에서도 되긴하는 구조 
+    def save_summary(self, result, score, note="", probability={}):
         
         """ Description
             -----------
@@ -285,7 +317,37 @@ class Asset:
                 proc_prob_dict[k] = round(v, 2) # 소수 둘째자리
             proc_prob_dict[max_value_key] = round(1 - sum(proc_prob_dict.values()), 2)
             return proc_prob_dict
-                    
+           
+        # FIXME .inference_artifacts/output/[현재 step >> 대부분 inference일 것] 내에 output 파일이 없으면 에러         
+        output_file_path = self.artifact_dir + 'output/' + self.asset_envs['step']
+        if len(os.listdir(output_file_path))==0:
+            self.logger.asset_error("Failed to save summary. Please generate inference output files first. \n (ex. output.csv, output.jpg)")
+        
+        # .inference_artifacts/output 내의 파일의 확장자가 지원하지 않는 타입이면 에러 
+        for output_file in os.listdir(output_file_path):
+            _, extension = os.path.splitext(output_file)
+            # 확장자 대문자로 입력했으면 에러 
+            if extension.isupper() == True: 
+                self.logger.asset_error(f"Please save the inference output file extension in lowercase letters. \n You entered: {output_file}")
+            # 확장자가 지원하지 않는 타입이면 에러 
+            if '*' + extension not in CSV_FORMATS.union(IMAGE_FORMATS): 
+                self.logger.asset_error(f"Unsupported type of extension: {output_file} \n >> Available extensions: {CSV_FORMATS.union(IMAGE_FORMATS)} \n (ex. output.csv, output.jpg)")
+
+        # file_path 생성
+        file_path = ""     
+        # external save artifacts path 
+        if self.save_artifacts_path is None: 
+            mode = self.asset_envs['pipeline'].split('_')[0] # train or inference
+            self.logger.asset_warning(f"Please enter the << external_path - save_{mode}_artifacts_path >> in the experimental_plan.yaml.")
+        else: 
+            file_path = self.save_artifacts_path 
+        
+        # version은 str type으로 포맷팅 
+        ver = ""
+        if self.solution_metadata_version == None: 
+            self.solution_metadata_version = ""
+        else: 
+            ver = 'v' + str(self.solution_metadata_version)
         
         # FIXME 배포 테스트 시 probability의 key 값 (클래스)도 정확히 모든 값 기입 됐는지 체크 필요     
         # dict type data to be saved in summary yaml 
@@ -295,8 +357,11 @@ class Asset:
             'date':  datetime.now(timezone('UTC')).strftime('%Y-%m-%d %H:%M:%S'), 
             # FIXME note에 input file 명 전달할 방법 고안 필요 
             'note': note,
-            'probability': make_addup_1(probability)
+            'probability': make_addup_1(probability),
+            'file_path': file_path,  # external save artifacts path
+            'version': ver
         }
+
         # self.asset_envs['pipeline'] 는 main.py에서 설정 
         if self.asset_envs['pipeline']  == "train_pipeline":
             file_path = self.asset_envs["artifacts"][".train_artifacts"] + "score/" + "train_summary.yaml" 
@@ -309,6 +374,7 @@ class Asset:
         try:      
             with open(file_path, 'w') as file:
                 yaml.dump(summary_data, file, default_flow_style=False)
+            self.logger.asset_info(f"Successfully saved inference summary yaml. \n >> {file_path}", color='green')
         except: 
             self.logger.asset_error(f"Failed to save summary yaml file \n @ << {file_path} >>")
              
@@ -453,15 +519,23 @@ class Asset:
     ##################################################################################################################################################################
     
     ##################################################################################################################################################################
-    
+    def _check_dataframe_key(self, prev_data):
+        prev_keys = [i for i in prev_data.keys() if 'dataframe' in i]
+        cur_keys =  [i for i in self.asset_data.keys() if 'dataframe' in i]
+        if len(prev_keys) < len(cur_keys): 
+            self.logger.asset_error(f"Do not add keys containing the word << dataframe >> into the output data dict to be saved.:\n You added: {set(cur_keys) - set(prev_keys)}")
+        if len(prev_keys) > len(cur_keys): 
+            self.logger.asset_error(f"Do not remove keys contaning the word << dataframe >>. \n You removed: {set(prev_keys) - set(cur_keys)}")
+        if prev_keys != cur_keys: 
+            self.logger.asset_error(f"Do not modify keys contaning the word << dataframe >>. \n - Previous step: {prev_keys} \n - Current step: {cur_keys}") 
+        
     # TODO : check whether data & config are updated 필요할지? 
     # FIXME : 만약 config, data에 대해서 dict 타입으로 비교할 때 data dict 내에 dataframe 있으면 ValueError: Can only compare identically-labeled DataFrame objects 에러 발생 가능성 존재 
     def decorator_run(func):
         def _run(self, *args, **kwargs):
+            step = self.asset_envs["step"]
+            prev_data, prev_config = self.asset_data, self.asset_config 
             try:
-                step = self.asset_envs["step"]
-             
-                #prev_data, prev_config = self.asset_data, self.asset_config 
                 # print asset start info. 
                 self._asset_start_info() 
                 # run user asset 
@@ -470,12 +544,13 @@ class Asset:
                 if (self.asset_envs['save_data'] != 1) or (self.asset_envs['save_config'] != 1):
                         self.logger.asset_error(f"You did not call (or more than once) the \n << self.asset.save_data() >> \
                                             or << self.asset.save_conifg() >> API in the << {step} >> step. \n Both of calls are mandatory.")
-                    
                 if (not isinstance(self.asset_data, dict)) or (not isinstance(self.asset_config, dict)):
                     self.logger.asset_error(f"You should make dict for argument of << self.asset.save_data()>> or << self.asset.save_config() >> \n @ << {step} >> step.")  
-
-            except Exception as e:
-                self.logger.asset_error(str(e))
+                # input step 이외에, 이번 step에서 사용자가 dataframe이라는 문자를 포함한 key를 새로 추가하지 않았는 지 체크 
+                if step != 'input':
+                    self._check_dataframe_key(prev_data)
+            except:
+                self.logger.asset_error(f"Failed to run << {step} >>")
                 
             # print asset finish info.
             self._asset_finish_info()
@@ -579,3 +654,139 @@ class Asset:
             f"- save data keys    : {self.asset_data.keys()}\n",
             f"=======================================================================\n\n"])
         self.logger.asset_info(msg)
+
+
+#--------------------------------------------------------------------------------------------------------------------------
+#   Common Functions 
+#--------------------------------------------------------------------------------------------------------------------------
+
+
+# FIXME load_file 함수 print, error 함수 변경필요 
+def load_file(_data_file, _print=True):
+    """ Description
+        -----------
+            - 파일을 로하하여 데이터로 가져온다.
+        Parameters
+        -----------
+            - data_file (str) : 로드할 데이터의 파일이름 (경로 포함)
+                                (확장자 지원 : csv, h5, tfrecord, pkl, json, params, log)
+            - option
+                - _print (bool) : 데이터 저장여부 출력
+        Return
+        -----------
+            - data (csv) : dataframe
+                    (pkl, json, params, log) : dictionary
+        Example
+        -----------
+            - data = load_file(data_file)
+    """
+
+    _data = None
+    if _data_file != None:
+        try:
+            if _data_file.lower().endswith('.pkl'):
+                with open(_data_file, 'rb') as f:
+                    _data = pickle.load(f)
+            elif _data_file.lower().endswith('.json') or \
+                    _data_file.lower().endswith('.params') or \
+                    _data_file.lower().endswith('.log'):
+                with open(_data_file, 'r') as f:
+                    _data = json.load(f)
+            else:
+                raise TypeError('No Support file format (support : pkl, json, params, log)')
+                
+            if _print == True:
+                print('Loaded : {}'.format(_data_file))
+            else:
+                pass
+        except FileNotFoundError: 
+            raise ValueError('File Not Found : {}'.format(_data_file))
+        except AttributeError:
+            # ex. tfrecord를 제작할 때 사용한 pandas 버전과 다른 경우 발생
+            raise ValueError('Attribute Error')
+        except:
+            raise ValueError('File Data Error : {}'.format(_data_file))
+    else:
+        raise ValueError('Failed to load data. Data file path is None.')
+
+    return _data
+
+# FIXME save_file 함수 print, error 함수 변경필요 
+def save_file(_data, _data_file, _print=True):
+    """ Description
+        -----------
+            - 데이터를 파일로 저장한다.
+        Parameters
+        -----------
+            - data : 파일로 저장할 데이터 (dict) : dataframe 등 key 포함 
+
+            - data_file (str) : 저장할 데이터의 파일이름 (경로 포함)
+                                (확장자 지원 : csv, pkl, json, params, log)
+            - option
+                - _print (bool) : 데이터 저장여부 출력
+        Example
+        -----------
+            - save_file(data, data_file)
+    """
+
+    if _data_file != None and not (isinstance(_data, str) and _data == 'none') and len(_data) > 0:
+        try:
+            check_path(_data_file)
+
+            if _data_file.lower().endswith('.pkl'):
+                with open(_data_file, "wb") as f:
+                    pickle.dump(_data, f)
+            elif _data_file.lower().endswith('.json') or \
+                    _data_file.lower().endswith('.params') or \
+                    _data_file.lower().endswith('.log'):
+                with open(_data_file, "w") as f:
+                    # ensure_ascii=False : 한글 지원
+                    json.dump(_data, f, indent=4, ensure_ascii=False)
+            else:
+                raise TypeError('No Support file format (support : pkl, json, params, log)')
+            
+            if _print == True:
+                _msg = f'Saved : {_data_file}'
+                print(_msg)
+            else:
+                pass
+        except TypeError as e:
+            raise TypeError(str(e))
+        
+        except:
+            raise ValueError('Failed to save : {}'.format(_data_file))
+
+    else:
+        pass
+
+
+def check_path(_filename, remake=False):
+    """ Description
+        -----------
+            Check the directory of file
+
+        Parameters
+        -----------
+            _filename (str) : the file name with full directory 
+            options
+                remake (bool) : Create the path if not path
+
+        Return
+        -----------
+            bool
+
+        Example
+        -----------
+            check_path('/home/user/work/filename.csv', remake=True)
+    """
+ 
+    # 접근 폴더가 없다면
+    if not os.path.exists(os.path.dirname(_filename)):
+        os.makedirs(os.path.dirname(_filename))
+        return False
+    else:
+        # 폴더가 있다면 삭제하고, 다시 만든다.
+        if remake == True:
+            shutil.rmtree(os.path.dirname(_filename))
+            os.makedirs(os.path.dirname(_filename))
+        return True

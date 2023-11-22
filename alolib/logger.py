@@ -1,6 +1,7 @@
 import os 
 import logging
 import logging.config
+import shutil 
 from datetime import datetime
 
 #--------------------------------------------------------------------------------------------------------------------------
@@ -144,12 +145,14 @@ class ProcessLogger:
         logging.config.dictConfig(self.process_logging_config)
         error_logger = logging.getLogger("ERROR") 
         error_logger.error(f'{msg}')
-        
-        raise ValueError(formatted_msg)  
+        # FIXME train만 돌든 inference만 돌든 일단 artifacts 폴더는 둘다 만들기 때문에 process error도 둘 다에 백업 
+        try:
+            backup_error_artifacts('process', self.project_home)
+        except: 
+            raise NotImplementedError("Failed to backup artifacts before raising << process error >>")
+        finally: 
+            raise ValueError(formatted_msg)  
 
-    #--------------------------------------------------------------------------------------------------------------------------
-    #   Common Functions 
-    #--------------------------------------------------------------------------------------------------------------------------
     
     def print_color(self, msg, _color):
         """ Description
@@ -168,13 +171,17 @@ class ProcessLogger:
         if _color.upper() in COLOR_DICT.keys():
             print(COLOR_DICT[_color.upper()] + msg+COLOR_END)
         else:
-            raise ValueError('[ASSET][ERROR] print_color() Error. - selected color : {}'.format(COLOR_DICT.keys()))
-                    
+            raise ValueError('[ASSET][ERROR] print_color() function call error. - selected color : {}'.format(COLOR_DICT.keys()))
+
+    
 class Logger: 
     # [%(filename)s:%(lineno)d]
     # envs 미입력 시 설치 과정, 프로세스 진행 과정 등 전체 과정 보기 위한 로그 생성 
     def __init__(self, envs):
         self.asset_envs = envs
+        self.project_home = self.asset_envs['project_home']
+        self.pipeline = self.asset_envs['pipeline']
+        self.step = self.asset_envs['step']
         try: 
             self.log_file_path = self.asset_envs['log_file_path']
         except: 
@@ -186,7 +193,7 @@ class Logger:
             "version": 1,
             "formatters": {
                 "complex": {
-                    "format": f"[%(asctime)s][USER][%(levelname)s][{self.asset_envs['pipeline']}][{self.asset_envs['step']}]: %(message)s"
+                    "format": f"[%(asctime)s][USER][%(levelname)s][{self.pipeline}][{self.step}]: %(message)s"
                     #"datefmt": '%Y-%m-%d %H:%M:%S'
                 },
             },
@@ -214,7 +221,7 @@ class Logger:
             "version": 1,
             "formatters": {
                 "complex": {
-                    "format": f"[%(asctime)s][ASSET][%(levelname)s][{self.asset_envs['pipeline']}][{self.asset_envs['step']}]: %(message)s"
+                    "format": f"[%(asctime)s][ASSET][%(levelname)s][{self.pipeline}][{self.step}]: %(message)s"
                     #"datefmt": '%Y-%m-%d %H:%M:%S'
                 },
             },
@@ -272,7 +279,6 @@ class Logger:
         warning_logger.warning(f'{msg}')
 
 
-    # TODO save error 하면 마지막에 error를 pipeline.log 저장하고 죽는지 확인 필요 
     def user_error(self, msg):
         """Description
             -----------
@@ -292,15 +298,16 @@ class Logger:
         formatted_msg = "".join([
             f"\n\n============================= USER ERROR =============================\n",
             f"TIME(UTC)   : {time_utc}\n",
-            f"PIPELINE    : {self.asset_envs['pipeline']}\n",
-            f"STEP        : {self.asset_envs['step']}\n",
+            f"PIPELINE    : {self.pipeline}\n",
+            f"STEP        : {self.step}\n",
             f"ERROR(msg)  : {msg}\n",
             f"=======================================================================\n\n"])
         logging.config.dictConfig(self.user_logging_config)
         error_logger = logging.getLogger("ERROR") 
         error_logger.error(f'{formatted_msg}')
-        
-        raise ValueError(formatted_msg)
+   
+        raise ValueError(formatted_msg)  
+
     
     #--------------------------------------------------------------------------------------------------------------------------
     #    ALO Internal Logging
@@ -309,7 +316,7 @@ class Logger:
     def asset_info(self, msg, color='blue'): # color는 blue, green만 제공 
         # stdout 
         time_utc = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S,%f')[:-3]
-        formatted_msg = f"[{time_utc}][ASSET][INFO][{self.asset_envs['pipeline']}][{self.asset_envs['step']}]: {msg}"
+        formatted_msg = f"[{time_utc}][ASSET][INFO][{self.pipeline}][{self.step}]: {msg}"
         if color not in ['blue', 'green']:
             self.asset_error(f"[ASSET][ERROR] only << blue >> or << green >> is allowed for asset_info()")
         self.print_color(formatted_msg, color)
@@ -322,7 +329,7 @@ class Logger:
     def asset_warning(self, msg):
         # stdout
         time_utc = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S,%f')[:-3]
-        formatted_msg = f"[{time_utc}][ASSET][INFO][{self.asset_envs['pipeline']}][{self.asset_envs['step']}]: {msg}"
+        formatted_msg = f"[{time_utc}][ASSET][WARNING][{self.pipeline}][{self.step}]: {msg}"
         self.print_color(formatted_msg, 'yellow')
         # log file save 
         logging.config.dictConfig(self.asset_logging_config) # file handler only logging config 
@@ -338,20 +345,21 @@ class Logger:
         formatted_msg = "".join([
             f"\n\n============================= ASSET ERROR =============================\n",
             f"TIME(UTC)   : {time_utc}\n",
-            f"PIPELINE    : {self.asset_envs['pipeline']}\n",
-            f"STEP        : {self.asset_envs['step']}\n",
+            f"PIPELINE    : {self.pipeline}\n",
+            f"STEP        : {self.step}\n",
             f"ERROR(msg)  : {msg}\n",
             f"=======================================================================\n\n"])
         # log file save 
         logging.config.dictConfig(self.asset_logging_config) # file handler only logging config 
         error_logger = logging.getLogger("ERROR") 
-        error_logger.error(f'{formatted_msg}')
-        
-        raise ValueError(formatted_msg)
-    
-    #--------------------------------------------------------------------------------------------------------------------------
-    #   Common Functions 
-    #--------------------------------------------------------------------------------------------------------------------------
+        error_logger.error(f'{formatted_msg}') #, exc_info=True) #, stack_info=True, exc_info=True)
+        try:
+            backup_error_artifacts('asset', self.project_home)
+        except: 
+            raise NotImplementedError("Failed to backup artifacts before raising << process error >>")
+        finally: 
+            raise ValueError(formatted_msg)  
+
     
     def print_color(self, msg, _color):
         """ Description
@@ -370,4 +378,59 @@ class Logger:
         if _color.upper() in COLOR_DICT.keys():
             print(COLOR_DICT[_color.upper()] + msg+COLOR_END)
         else:
-            raise ValueError('[ASSET][ERROR] print_color() Error. - selected color : {}'.format(COLOR_DICT.keys()))
+            raise ValueError('[ASSET][ERROR] print_color() function call error. - selected color : {}'.format(COLOR_DICT.keys()))
+
+
+#--------------------------------------------------------------------------------------------------------------------------
+#   Common Functions 
+#--------------------------------------------------------------------------------------------------------------------------
+
+# [중요] user error의 경우 어짜피 decorator run에서 asset error 한번 더 뜨므로 backup_error_artifacts 하지 않음 
+# [중요] process error와 asset error는 폴더 이름으로 구분함. 
+def backup_error_artifacts(prefix, project_home):
+    """ Description
+        -----------
+            - 파이프라인 실행 종료 후 사용한 yaml과 결과 artifacts를 .history에 백업함 
+        Parameters
+        -----------
+            - prefix: process, asset ~ str
+            - project_home: project home absolute path ~ str
+
+        Return
+        -----------
+            - 'OK'
+        Example
+        -----------
+            - backup_artifacts('asset', '/~/~/alo/')
+    """
+    PROJECT_HOME = project_home
+
+    try:
+        error_occur_time = datetime.now().strftime("%y%m%d_%H%M%S")
+    
+        # ALO에서 일반적으로 잘 수행된 backup artifacts 폴더 명은 프로세스 시작시간으로 시작하지만, error 발생 시엔 error_에러발생시간_~ 으로 폴더명 지정 
+        backup_folder= f'{error_occur_time}_artifacts_{prefix}_error/'
+        # TODO current_pipelines 는 차후에 workflow name으로 변경이 필요
+        temp_backup_artifacts_dir = PROJECT_HOME + backup_folder
+        
+        # 임시 저장 폴더 만들기
+        if os.path.exists(temp_backup_artifacts_dir):
+            shutil.rmtree(temp_backup_artifacts_dir) 
+        os.mkdir(temp_backup_artifacts_dir)
+        
+        # FIXME 어떤 plan yaml 파일을 썼는지 받아오기 어려우므로 config 폴더 통 째로 임시 폴더로 copy 하기 
+        shutil.copytree(PROJECT_HOME + 'config', temp_backup_artifacts_dir + 'config')
+        # 임시 폴더에 artifacts 들을 백업 (train, inference 상관없이)
+        shutil.copytree(PROJECT_HOME + ".train_artifacts", temp_backup_artifacts_dir + ".train_artifacts")
+        shutil.copytree(PROJECT_HOME + ".inference_artifacts", temp_backup_artifacts_dir + ".inference_artifacts")
+            
+        # 임시 폴더를 .history 밑으로 이동 
+        shutil.move(temp_backup_artifacts_dir, PROJECT_HOME + ".history/")
+        # 잘 move 됐는 지 확인  
+        if os.path.exists(PROJECT_HOME + ".history/" + backup_folder):
+            return 'OK'
+    except:
+        raise NotImplementedError("Failed to backup error artifacts.")
+    finally:
+        if os.path.exists(temp_backup_artifacts_dir):
+            shutil.rmtree(temp_backup_artifacts_dir) # copy 실패 시 임시 backup_artifacts_home 폴더 삭제 
