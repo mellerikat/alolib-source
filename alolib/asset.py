@@ -91,8 +91,8 @@ class Asset:
         self.logger.user_warning(msg)
         
     def save_error(self, msg):
-        #self.logger.user_error(msg)
-        print(msg)
+        self.logger.user_error(msg)
+  
     
     def load_args(self):
         """ Description
