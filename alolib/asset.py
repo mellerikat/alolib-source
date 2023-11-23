@@ -92,8 +92,7 @@ class Asset:
         
     def save_error(self, msg):
         self.logger.user_error(msg)
-  
-    
+
     def load_args(self):
         """ Description
             -----------
@@ -250,7 +249,15 @@ class Asset:
                 self.logger.asset_error(f"Failed to call << load_summary>>. \n - summary yaml file path : {yaml_file_path}")
         else: 
             self.logger.asset_error(f"Failed to call << load_summary>>. \n You did not call << save_summary >> in previous assets before calling << load_summary >>")
-        
+
+        # ALO가 내부적으로 생성하는 key는 사용자에게 미반환 
+        try: 
+            del yaml_dict['file_path']
+            del yaml_dict['version']
+            del yaml_dict['date']
+        except: 
+            self.logger.asset_error(f"[@ load_summary] Failed to delete the key of << file_path, version, date >> in the yaml dictionary.")
+            
         return yaml_dict 
     
     
@@ -296,15 +303,18 @@ class Asset:
             self.logger.asset_error("The type of argument << probability >> must be << dict >>")
             
         # probability key는 string이고 value는 float or int인지 확인 
-        key_chk_str_set = set([isinstance(k, str) for k in probability.keys()])
-        value_type_set = set([type(v) for v in probability.values()])
-        if key_chk_str_set != {True}: 
-            self.logger.asset_error("The key of dict argument << probability >> must have the type of << str >> ")
-        if not value_type_set.issubset({float, int}): 
-            self.logger.asset_error("The value of dict argument << probability >> must have the type of << int >> or << float >> ")
-        # probability value 합이 1인지 확인 
-        if sum(probability.values()) != 1: 
-            self.logger.asset_error("The sum of probability dict values must be << 1.0 >>")
+        if len(probability.keys()) > 0: # {} 일수 있으므로 (default도 {}이고)
+            key_chk_str_set = set([isinstance(k, str) for k in probability.keys()])
+            value_type_set = set([type(v) for v in probability.values()])
+            if key_chk_str_set != {True}: 
+                self.logger.asset_error("The key of dict argument << probability >> must have the type of << str >> ")
+            if not value_type_set.issubset({float, int}): 
+                self.logger.asset_error("The value of dict argument << probability >> must have the type of << int >> or << float >> ")
+            # probability value 합이 1인지 확인 
+            if sum(probability.values()) != 1: 
+                self.logger.asset_error("The sum of probability dict values must be << 1.0 >>")
+        else:
+            pass 
         
         # FIXME 가령 0.50001, 0.49999 같은건 대응이 안됨 
         # FIXME 처음에 사용자가 입력한 dict가 합 1인지도 체크필요 > 부동소수 에러 예상
@@ -318,22 +328,30 @@ class Asset:
                 proc_prob_dict[k] = round(v, 2) # 소수 둘째자리
             proc_prob_dict[max_value_key] = round(1 - sum(proc_prob_dict.values()), 2)
             return proc_prob_dict
-           
-        # FIXME .inference_artifacts/output/[현재 step >> 대부분 inference일 것] 내에 output 파일이 없으면 에러         
-        output_file_path = self.artifact_dir + 'output/' + self.asset_envs['step']
-        if len(os.listdir(output_file_path))==0:
-            self.logger.asset_error("Failed to save summary. Please generate inference output files first. \n (ex. output.csv, output.jpg)")
         
+        if (probability != None) and (probability != {}): 
+            probability = make_addup_1(probability)
+        else: 
+            probability = {}
+        #FIXME 일단 summary yaml 수정 후 save summary 다시할 땐 꼭 output.csv, output.jpg를 다시 해당 step에서 만든 상태일 필요 없으므로 output path 체크는 모든 step 걸쳐 하나만 있음되도록 수정함 
+        # FIXME .inference_artifacts/output/[현재 step >> 대부분 inference일 것] 내에 output 파일이 없으면 에러         
+        output_file_path = self.artifact_dir + 'output/'
         # .inference_artifacts/output 내의 파일의 확장자가 지원하지 않는 타입이면 에러 
-        for output_file in os.listdir(output_file_path):
-            _, extension = os.path.splitext(output_file)
-            # 확장자 대문자로 입력했으면 에러 
-            if extension.isupper() == True: 
-                self.logger.asset_error(f"Please save the inference output file extension in lowercase letters. \n You entered: {output_file}")
-            # 확장자가 지원하지 않는 타입이면 에러 
-            if '*' + extension not in CSV_FORMATS.union(IMAGE_FORMATS): 
-                self.logger.asset_error(f"Unsupported type of extension: {output_file} \n >> Available extensions: {CSV_FORMATS.union(IMAGE_FORMATS)} \n (ex. output.csv, output.jpg)")
-
+        # FIXME 일단 summary yaml 수정 후 save summary 다시할 땐 꼭 output.csv, output.jpg를 다시 해당 step에서 만든 상태일 필요 없으므로 output path 체크는 모든 step 걸쳐 하나만 있음되도록 수정함 
+        output_file_cnt = 0
+        for (path, dir, files) in os.walk(output_file_path):
+            for output_filename in files:
+                extension = os.path.splitext(output_filename)[-1]
+                # 확장자 대문자로 입력했으면 에러 
+                if extension.isupper() == True: 
+                    self.logger.asset_error(f"Please save the inference output file extension in lowercase letters. \n You entered: {path}/{dir}/{output_filename}")
+                # 확장자가 지원하지 않는 타입이면 에러 
+                if '*' + extension not in CSV_FORMATS.union(IMAGE_FORMATS): 
+                    self.logger.asset_error(f"Unsupported type of extension:  {path}/{dir}/{output_filename} \n >> Available extensions: {CSV_FORMATS.union(IMAGE_FORMATS)} \n (ex. output.csv, output.jpg)")
+                output_file_cnt += 1
+        if output_file_cnt == 0:
+            self.logger.asset_error("Failed to save summary. Please generate inference output files first. \n (ex. output.csv, output.jpg)")
+            
         # file_path 생성
         file_path = ""     
         # external save artifacts path 
@@ -358,7 +376,7 @@ class Asset:
             'date':  datetime.now(timezone('UTC')).strftime('%Y-%m-%d %H:%M:%S'), 
             # FIXME note에 input file 명 전달할 방법 고안 필요 
             'note': note,
-            'probability': make_addup_1(probability),
+            'probability': probability,
             'file_path': file_path,  # external save artifacts path
             'version': ver
         }
