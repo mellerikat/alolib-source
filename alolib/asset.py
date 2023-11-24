@@ -333,6 +333,8 @@ class Asset:
             probability = make_addup_1(probability)
         else: 
             probability = {}
+        # FIXME 현재 tcr 처럼 save summary 부터 하고 output file 저장할 수도 있으므로 output 파일 생성 체크는 추후에 다른곳에서 하거나 에러나게 해야할 듯.  
+        '''
         #FIXME 일단 summary yaml 수정 후 save summary 다시할 땐 꼭 output.csv, output.jpg를 다시 해당 step에서 만든 상태일 필요 없으므로 output path 체크는 모든 step 걸쳐 하나만 있음되도록 수정함 
         # FIXME .inference_artifacts/output/[현재 step >> 대부분 inference일 것] 내에 output 파일이 없으면 에러         
         output_file_path = self.artifact_dir + 'output/'
@@ -351,7 +353,7 @@ class Asset:
                 output_file_cnt += 1
         if output_file_cnt == 0:
             self.logger.asset_error("Failed to save summary. Please generate inference output files first. \n (ex. output.csv, output.jpg)")
-            
+        '''
         # file_path 생성
         file_path = ""     
         # external save artifacts path 
