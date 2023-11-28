@@ -139,7 +139,7 @@ class ProcessLogger:
     def process_error(self, msg):
         logging.config.dictConfig(self.process_logging_config)
         error_logger = logging.getLogger("ERROR") 
-        error_logger.error(f'{msg}', stack_info=False, exc_info=True)
+        error_logger.error(f'{msg}') #, stack_info=True, exc_info=True)
         raise
 
     
@@ -212,7 +212,7 @@ class Logger:
             msg = "Failed to run asset_error(). Only support << str >> type for the argument."
             logging.config.dictConfig(self.asset_logging_config) # file handler only logging config 
             error_logger = logging.getLogger("ERROR") 
-            error_logger.error(f'{formatted_msg}', stack_info=True, exc_info=True)
+            error_logger.error(f'{formatted_msg}') #, stack_info=True, exc_info=True)
             raise
         
         formatted_msg = "".join([
@@ -225,7 +225,7 @@ class Logger:
         # log file save 
         logging.config.dictConfig(self.asset_logging_config) # file handler only logging config 
         error_logger = logging.getLogger("ERROR") 
-        error_logger.error(f'{formatted_msg}', stack_info=False, exc_info=True)
+        error_logger.error(f'{formatted_msg}') #, stack_info=True, exc_info=True)
         raise
 
 
