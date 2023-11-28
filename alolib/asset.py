@@ -85,14 +85,15 @@ class Asset:
     #                                                                           Slave API
     ##################################################################################################################################################################
     def save_info(self, msg):
-        self.logger.user_info(msg)
+        self.logger.asset_info(msg)
         
     def save_warning(self, msg):
-        self.logger.user_warning(msg)
+        self.logger.asset_warning(msg)
         
     def save_error(self, msg):
-        self.logger.user_error(msg)
+        self.logger.asset_error(msg)
 
+        
     def load_args(self):
         """ Description
             -----------
@@ -395,7 +396,7 @@ class Asset:
         try:      
             with open(file_path, 'w') as file:
                 yaml.dump(summary_data, file, default_flow_style=False)
-            self.logger.asset_info(f"Successfully saved inference summary yaml. \n >> {file_path}", color='green')
+            self.logger.asset_info(f"Successfully saved inference summary yaml. \n >> {file_path}") 
         except: 
             self.logger.asset_error(f"Failed to save summary yaml file \n @ << {file_path} >>")
              
@@ -462,7 +463,7 @@ class Asset:
                     
         # trian 땐 없으면 폴더 생성 
         os.makedirs(model_path, exist_ok=True) # exist_ok =True : 이미 존재하면 그대로 둠 
-        self.logger.asset_info(f"Successfully got model path for saving or loading your AI model: \n {model_path}", "green")
+        self.logger.asset_info(f"Successfully got model path for saving or loading your AI model: \n {model_path}")
         
         return model_path
 
@@ -500,7 +501,7 @@ class Asset:
             output_path = self.asset_envs["artifacts"][".inference_artifacts"] + f"output/{current_step_name}/"
             os.makedirs(output_path, exist_ok=True)
             
-        self.logger.asset_info(f"Successfully got << output path >> for saving your data into csv or jpg file: \n {output_path} \n - [NOTE] ""The names of output file must be fixed as << output.csv, output.jpg >>"" ", "green")
+        self.logger.asset_info(f"Successfully got << output path >> for saving your data into csv or jpg file: \n {output_path} \n - [NOTE] ""The names of output file must be fixed as << output.csv, output.jpg >>"" ")
         
         return output_path
 
@@ -532,7 +533,7 @@ class Asset:
         os.makedirs(report_path, exist_ok=True) # exist_ok =True : 이미 존재하면 그대로 둠 
 
         report_path  = report_path
-        self.logger.asset_info(f"Successfully got << report path >> for saving your << report.html >> file: \n {report_path}", "green")
+        self.logger.asset_info(f"Successfully got << report path >> for saving your << report.html >> file: \n {report_path}")
         
         return report_path
     
