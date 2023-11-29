@@ -652,8 +652,8 @@ class Asset:
 
                 
     def _asset_start_info(self):
-        msg = "".join([
-            f"\n\n============================= ASSET START =============================\n",
+        msg = "".join(["\033[36m", # dark cyan
+            f"\n\n========================================================== ASSET START ==========================================================\n",
             f"- time (UTC)        : {datetime.now(timezone('UTC')).strftime('%Y-%m-%d %H:%M:%S')}\n",
             f"- current step      : {self.asset_envs['step']}\n",
             f"- asset branch.     : {self.asset_branch}\n", 
@@ -663,18 +663,20 @@ class Asset:
             f"- load args. keys   : {self.asset_args.keys()}\n",
             f"- load config. keys : {self.asset_config.keys()}\n", 
             f"- load data keys    : {self.asset_data.keys()}\n",
-            f"=======================================================================\n\n"])
+            f"====================================================================================================================================\n\n",
+            "\033[0m"])
         self.logger.asset_info(msg)
 
 
     def _asset_finish_info(self): 
-        msg = "".join([
+        msg = "".join(["\033[36m", # dark cyan
             f"\n\n============================= ASSET FINISH ===========================\n",
             f"- time (UTC)        : {datetime.now(timezone('UTC')).strftime('%Y-%m-%d %H:%M:%S')}\n",
             f"- current step      : {self.asset_envs['step']}\n",
             f"- save config. keys : {self.asset_config.keys()}\n",
             f"- save data keys    : {self.asset_data.keys()}\n",
-            f"=======================================================================\n\n"])
+            f"=======================================================================\n\n",
+            "\033[0m"])
         self.logger.asset_info(msg)
 
 

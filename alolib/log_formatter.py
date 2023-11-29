@@ -1,7 +1,19 @@
+# https://medium.com/analytics-vidhya/python-logging-colorize-your-arguments-41567a754ac
 import logging
 import logging.handlers
 import re
-# https://medium.com/analytics-vidhya/python-logging-colorize-your-arguments-41567a754ac
+# https://stackoverflow.com/questions/75529839/how-can-i-impose-a-maximum-length-of-the-logger-message-before-an-automatic-line
+from textwrap import wrap
+
+class MultiLineHandler(logging.StreamHandler):
+    def __init__(self, line_length: int):
+        logging.StreamHandler.__init__(self)
+        self.line_length = line_length
+
+    def emit(self, record):
+        record.msg = "\n".join(wrap(record.msg, self.line_length))
+        super().emit(record)
+
 
 class ColorCodes:
     grey = "\x1b[38;21m"
@@ -47,9 +59,11 @@ class ColorizedArgsFormatter(logging.Formatter):
 
     @staticmethod
     def rewrite_record(record: logging.LogRecord):
+
         if not BraceFormatStyleFormatter.is_brace_format_style(record):
             return
-
+        
+        # color 
         msg = record.msg
         msg = msg.replace("{", "_{{")
         msg = msg.replace("}", "_}}")
@@ -65,8 +79,10 @@ class ColorizedArgsFormatter(logging.Formatter):
             msg = msg.replace("_}}", "}" + ColorCodes.reset, 1)
             placeholder_count += 1
 
+        
         record.msg = msg.format(*record.args)
         record.args = []
+
 
     def format(self, record):
         orig_msg = record.msg
@@ -76,6 +92,7 @@ class ColorizedArgsFormatter(logging.Formatter):
         formatted = formatter.format(record)
         record.msg = orig_msg
         record.args = orig_args
+        
         return formatted
 
 

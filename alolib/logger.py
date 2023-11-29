@@ -3,10 +3,11 @@ import logging
 import logging.config
 from datetime import datetime
 from copy import deepcopy 
-from alolib.colargulog import ColorizedArgsFormatter
+from alolib.log_formatter import ColorizedArgsFormatter
 #--------------------------------------------------------------------------------------------------------------------------
 #    GLOBAL VARIABLE
 #--------------------------------------------------------------------------------------------------------------------------
+LINE_LENGTH = 120
 # PROJECT_HOME = os.path.dirname(os.path.abspath(os.path.dirname(__file__))) + "/"
 # TRAIN_LOG_PATH =  PROJECT_HOME + ".train_artifacts/log/"
 # INFERENCE_LOG_PATH = PROJECT_HOME + ".inference_artifacts/log/"
@@ -193,16 +194,16 @@ class Logger:
         if not isinstance(msg, str):
             self.asset_error("Failed to run asset_info(). Only support << str >> type for the argument.")
         logging.config.dictConfig(self.asset_logging_config) # file handler only logging config 
-        error_logger = logging.getLogger("INFO") 
-        error_logger.info(f'{msg}')
+        info_logger = logging.getLogger("INFO") 
+        info_logger.info(f'{msg}')
 
    
     def asset_warning(self, msg):
         if not isinstance(msg, str):
             self.asset_error("Failed to run asset_warning(). Only support << str >> type for the argument.")
         logging.config.dictConfig(self.asset_logging_config) # file handler only logging config 
-        error_logger = logging.getLogger("WARNING") 
-        error_logger.warning(f'{msg}')
+        warning_logger = logging.getLogger("WARNING") 
+        warning_logger.warning(f'{msg}')
     
     
     def asset_error(self, msg):
