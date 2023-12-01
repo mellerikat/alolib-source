@@ -27,8 +27,8 @@ for req in requirements:
 setup(
     name='alolib',
     version=version,
-    author='wonjun.sung',
-    author_email='wonjun.sung@lge.com',
+    author='sehyun Song, wonjun Sung, woosung Jang',
+    author_email='sehyun.song@lge.com, wonjun.sung@lge.com, ws.jang@lge.com',
     packages=find_packages('.'),
     install_requires=install_requires,
     license='MIT',

@@ -9,8 +9,8 @@ import yaml
 import pickle
 import json 
 import shutil
+import alolib 
 from alolib.logger import Logger 
-
 #--------------------------------------------------------------------------------------------------------------------------
 #    GLOBAL VARIABLE
 #--------------------------------------------------------------------------------------------------------------------------
@@ -44,7 +44,7 @@ class Asset:
             '.history': {}
         }
         # FIXME 추후 alo 이름 변경 필요? 
-        self.alolib_version = pkg_resources.get_distribution('alolib').version  
+        self.alolib_version = alolib.__version__ #pkg_resources.get_distribution('alolib').version  
         # 1. set envs, args, data, config .. 
         try:
             self.asset_envs = asset_structure.envs
