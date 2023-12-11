@@ -312,7 +312,7 @@ class Asset:
             if not value_type_set.issubset({float, int}): 
                 self.logger.asset_error("The value of dict argument << probability >> must have the type of << int >> or << float >> ")
             # probability value 합이 1인지 확인 
-            if sum(probability.values()) != 1: 
+            if round(sum(probability.values())) != 1: 
                 self.logger.asset_error("The sum of probability dict values must be << 1.0 >>")
         else:
             pass 
