@@ -170,12 +170,13 @@ class Asset:
             self.logger.asset_error(f"Only << file >> or << memory >> is supported for << interface_mode >>")  
         
     # FIXME data도 copy()로 돌려줄 필요 있을 지? 
-    def load_data(self):
+    def load_data(self, key_type='numbered'):
         """ Description
             -----------
                 - Asset 에 필요한 data를 반환한다.
             Parameters
             -----------
+                - key_type (str) : 'numbered', 'file_path' 
             Return
             -----------
                 - data  (dict)
@@ -183,6 +184,40 @@ class Asset:
             -----------
                 - data = load_data()
         """
+        # arg type check - str
+        if (not isinstance(key_type, str)) or (key_type not in ['numbered', 'file_path']):
+            self.logger.asset_error(f"The type of << key_type >> must be string. \n - Allowed values: << numbered >> or << file_name >>")
+        # input df - path mapping dict existence check 
+        if "input_asset_df_path" not in self.asset_config.keys():
+            self.logger.asset_error(f"<< input_asset_df_path >> key not in asset_config")
+        
+        def _convert_load_data_keys(_asset_data):
+            # get current key type 
+            current_key_type = '' 
+            if ('dataframe' in _asset_data.keys()) or ('dataframe0' in _asset_data.keys()):
+                current_key_type = 'numbered'
+            else: 
+                current_key_type = 'file_path'
+            # convert to user input key type 
+            input_path_mapping_dict = self.asset_config["input_asset_df_path"] # dict
+            # FIXME input_path_mapping_dict 의 value가 리스트일 때 처리(concat_dataframes = True 인 경우)
+            # 일단 한 개면 그냥 그대로 str으로 반환, 여러개 (concat) 이면 commat split으로 key 명 반환 
+            input_path_mapping_copy = input_path_mapping_dict.copy() 
+            for k, v in input_path_mapping_copy.items(): 
+                if isinstance(v, list):
+                    input_path_mapping_dict[k] = ', '.join(v) # list --> str 
+            if (current_key_type == 'numbered') and (key_type == 'file_path'): 
+                converted_asset_data = {input_path_mapping_dict[k] if k in input_path_mapping_dict.keys() else k:v for k,v in _asset_data.items()}
+            elif (current_key_type == 'file_path') and (key_type == 'numbered'): 
+                inverse_mappping_dict = {v: k for k, v in input_path_mapping_dict.items()}
+                converted_asset_data = {inverse_mappping_dict[k] if k in inverse_mappping_dict.keys() else k:v for k,v in _asset_data.items()}
+            else: 
+                return _asset_data
+            return converted_asset_data
+        
+        # self.asset_data key convert (file path or dataframeN)
+        self.asset_data = _convert_load_data_keys(self.asset_data)
+        # return or save asset data 
         if self.asset_envs['interface_mode'] == 'memory':
             self.asset_envs['load_data'] += 1
             return self.asset_data
@@ -195,6 +230,7 @@ class Asset:
                 # 이전 스탭에서 저장했던 pkl을 가져옴 
                 file_path = self.asset_envs['artifacts']['.asset_interface'] + self.asset_envs['pipeline'] + "/" + self.asset_envs['prev_step'] + "_data.pkl"
                 data = load_file(file_path)
+                data = _convert_load_data_keys(data)
                 self.asset_envs['load_data'] += 1
                 return data
             except Exception as e:
@@ -202,6 +238,8 @@ class Asset:
         else: 
             self.logger.asset_error(f"Only << file >> or << memory >> is supported for << interface_mode >>")
     
+
+        
     # TODO 파일 모드 시 .asset_interface에 저장할 때 step별로 subdirectory로 나눌필요 추후 있을듯 
     def save_data(self, data):
         if not isinstance(data, dict):
