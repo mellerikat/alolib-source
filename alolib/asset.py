@@ -10,6 +10,8 @@ import pickle
 import json 
 import shutil
 import alolib 
+from copy import deepcopy 
+from collections import OrderedDict
 from alolib.logger import Logger 
 #--------------------------------------------------------------------------------------------------------------------------
 #    GLOBAL VARIABLE
@@ -170,12 +172,13 @@ class Asset:
             self.logger.asset_error(f"Only << file >> or << memory >> is supported for << interface_mode >>")  
         
     # FIXME data도 copy()로 돌려줄 필요 있을 지? 
-    def load_data(self, key_type='numbered'):
+    def load_data(self, partial_path = None, key_type = 'numbered'):
         """ Description
             -----------
                 - Asset 에 필요한 data를 반환한다.
             Parameters
             -----------
+                - partial_path (str) : {PROJECT_HOME}/alo/input/{pipeline}/ 하위에 존재하는 경로. 부분적으로 해당 경로 내 데이터만 load  
                 - key_type (str) : 'numbered', 'file_path' 
             Return
             -----------
@@ -185,36 +188,51 @@ class Asset:
                 - data = load_data()
         """
         # arg type check - str
-        if (not isinstance(key_type, str)) or (key_type not in ['numbered', 'file_path']):
-            self.logger.asset_error(f"The type of << key_type >> must be string. \n - Allowed values: << numbered >> or << file_name >>")
+        if (not isinstance(key_type, str)) or (key_type not in ['numbered', 'file_path', 'file_name']):
+            self.logger.asset_error(f"The type of << key_type >> must be string. \n - Allowed values: << numbered >> or << file_path >> or << file_name >>")
         # input df - path mapping dict existence check 
         if "input_asset_df_path" not in self.asset_config.keys():
             self.logger.asset_error(f"<< input_asset_df_path >> key not in asset_config")
-        
-        def _convert_load_data_keys(_asset_data):
+
+        def _convert_load_data_keys(_asset_data): # inner func. 
+            # partial path에 대한 input data mother 경로 
+            input_pipe_path = self.input_data_home + self.asset_envs['pipeline'].split('_')[0]
             # get current key type 
             current_key_type = '' 
-            if ('dataframe' in _asset_data.keys()) or ('dataframe0' in _asset_data.keys()):
-                current_key_type = 'numbered'
-            else: 
-                current_key_type = 'file_path'
+            # input asset 바로 다음 asset을 위해 아래 if 문 필요 
+            if 'data_key_type' not in self.asset_config.keys():
+                if ('dataframe' in _asset_data.keys()) or ('dataframe0' in _asset_data.keys()):
+                    current_key_type = 'numbered'
+                    # {'numbered':list, 'file_path':list, 'file_name':list} 형태로 data key mapping table 초기화 
+                    ordered_key_map = OrderedDict(self.asset_config["input_asset_df_path"])
+                    # FIXME input_path_mapping_dict 의 value가 리스트일 때는 일단 미지원으로 에러 발생(concat_dataframes = True 인 경우)
+                    for k, v in ordered_key_map.items(): 
+                        if isinstance(v, list) and key_type != 'numbered':
+                            self.logger.asset_error(f"Only << numbered; dataframe1, dataframe2.. >> key type is allowed when input asset arguement << concat_dataframses >> is << True >>. \n - Your input key_type: << {key_type} >>")  
+                        elif isinstance(v, list) and key_type == 'numbered':
+                            return _asset_data 
+                    # concat_dataframes = False일 경우 data_key_map 생성 
+                    # input asset 바로 다음 asset에서 최초 생성 
+                    self.asset_config['data_key_map'] = {'numbered': [k for k, v in ordered_key_map.items()],  'file_path': [v.replace(input_pipe_path + '/', '') for k, v in ordered_key_map.items()],  'file_name': [os.path.basename(v) for k, v in ordered_key_map.items()]}
+            else:
+                # 이전 step 에서 save data 할 때의 data_key_type을 가져올 것임
+                current_key_type = self.asset_config['data_key_type']  
+            # data_key_type 을 config에 담아서 global로 활용 가능하도록 
+            self.asset_config['data_key_type'] = current_key_type 
             # convert to user input key type 
-            input_path_mapping_dict = self.asset_config["input_asset_df_path"] # dict
-            # FIXME input_path_mapping_dict 의 value가 리스트일 때 처리(concat_dataframes = True 인 경우)
-            # 일단 한 개면 그냥 그대로 str으로 반환, 여러개 (concat) 이면 commat split으로 key 명 반환 
-            input_path_mapping_copy = input_path_mapping_dict.copy() 
-            for k, v in input_path_mapping_copy.items(): 
-                if isinstance(v, list):
-                    input_path_mapping_dict[k] = ', '.join(v) # list --> str 
-            if (current_key_type == 'numbered') and (key_type == 'file_path'): 
-                converted_asset_data = {input_path_mapping_dict[k] if k in input_path_mapping_dict.keys() else k:v for k,v in _asset_data.items()}
-            elif (current_key_type == 'file_path') and (key_type == 'numbered'): 
-                inverse_mappping_dict = {v: k for k, v in input_path_mapping_dict.items()}
-                converted_asset_data = {inverse_mappping_dict[k] if k in inverse_mappping_dict.keys() else k:v for k,v in _asset_data.items()}
-            else: 
+            try: 
+                current_key_list = list(OrderedDict(_asset_data).keys())
+                target_key_list = self.asset_config['data_key_map'][key_type]
+                if set(current_key_list) == set(target_key_list): # 이미 key_type이 같으면 그냥 그대로 반환 
+                    return _asset_data
+                for i in range(len(target_key_list)): 
+                    _asset_data[target_key_list[i]] = _asset_data.pop(current_key_list[i])
+                # data_key_type update 
+                self.asset_config['data_key_type'] = key_type
                 return _asset_data
-            return converted_asset_data
-        
+            except: 
+                self.logger.asset_error(f"Failed to load_data() when converting key_type from << {current_key_type} >> to << {key_type} >>.") 
+                
         # self.asset_data key convert (file path or dataframeN)
         self.asset_data = _convert_load_data_keys(self.asset_data)
         # return or save asset data 
@@ -579,7 +597,19 @@ class Asset:
     ##################################################################################################################################################################
     
     ##################################################################################################################################################################
-    def _check_dataframe_key(self, prev_data):
+
+    def _check_config_key(self, prev_config):
+        # 이미 존재하는 key 삭제 금지 
+        for k in prev_config.keys(): 
+            if k not in self.asset_config.keys(): 
+                self.logger.asset_error(f"The key << {k} >>  of config dict is deleted in this step. Do not delete key.")  
+        
+    def _check_data_key(self, prev_data):
+        # 이미 존재하는 key 삭제 금지 
+        for k in prev_data.keys(): 
+            if k not in self.asset_data.keys(): 
+                self.logger.asset_error(f"The key << {k} >>  of data dict is deleted in this step. Do not delete key.")  
+        # asset 개발자가 dataframe이라는 이름 들어가는 key 추가 금지 
         prev_keys = [i for i in prev_data.keys() if 'dataframe' in i]
         cur_keys =  [i for i in self.asset_data.keys() if 'dataframe' in i]
         if len(prev_keys) < len(cur_keys): 
@@ -588,7 +618,20 @@ class Asset:
             self.logger.asset_error(f"Do not remove keys contaning the word << dataframe >>. \n You removed: {set(prev_keys) - set(cur_keys)}")
         if prev_keys != cur_keys: 
             self.logger.asset_error(f"Do not modify keys contaning the word << dataframe >>. \n - Previous step: {prev_keys} \n - Current step: {cur_keys}") 
-        
+
+    def _update_data_key_map(self, prev_data):
+        # input asset의 concat_dataframes = True인 경우 data_key_map을 지원 X 
+        if 'data_key_map' not in self.asset_config.keys(): 
+            return 
+        # 이미 _check_data_key 호출을 통해 dataframe 이름이 들어간 비정상적인 key 추가는 걸러진 상태 
+        added_key_list = []
+        for k in self.asset_data.keys(): 
+            if k not in prev_data.keys():
+                added_key_list.append(k)
+        for i in added_key_list: 
+            for k in self.asset_config['data_key_map'].keys(): 
+                self.asset_config['data_key_map'][k].append(i)
+
     # TODO : check whether data & config are updated 필요할지? 
     # FIXME : 만약 config, data에 대해서 dict 타입으로 비교할 때 data dict 내에 dataframe 있으면 ValueError: Can only compare identically-labeled DataFrame objects 에러 발생 가능성 존재 
     def decorator_run(func):
@@ -606,9 +649,14 @@ class Asset:
                                             or << self.asset.save_conifg() >> API in the << {step} >> step. \n Both of calls are mandatory.")
                 if (not isinstance(self.asset_data, dict)) or (not isinstance(self.asset_config, dict)):
                     self.logger.asset_error(f"You should make dict for argument of << self.asset.save_data()>> or << self.asset.save_config() >> \n @ << {step} >> step.")  
-                # input step 이외에, 이번 step에서 사용자가 dataframe이라는 문자를 포함한 key를 새로 추가하지 않았는 지 체크 
                 if step != 'input':
-                    self._check_dataframe_key(prev_data)
+                    # 기존 config key를 삭제하지 않았는 지 체크 
+                    self._check_config_key(prev_config)
+                    # input step 이외에, 이번 step에서 사용자가 dataframe이라는 문자를 포함한 key를 새로 추가하지 않았는 지 체크 
+                    # 기존 데이터 key를 삭제하지 않았는 지 체크 
+                    self._check_data_key(prev_data)
+                    # 새로 추가한 data key가 있다면 self.asset_config['data_key_map']에 추가 (단, numbered, file_path, file_name 모두 같은 이름으로 추가) ***
+                    self._update_data_key_map(prev_data)
             except:
                 self.logger.asset_error(f"Failed to run << {step} >>")
                 
