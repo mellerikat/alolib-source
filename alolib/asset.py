@@ -2,7 +2,6 @@
 import alolib 
 from alolib.logger import Logger 
 import configparser 
-from collections import OrderedDict
 from datetime import datetime
 import json 
 import os
@@ -48,6 +47,13 @@ class Asset:
         # 1. set envs, args, data, config .. 
         # envs
         self.asset_envs = asset_structure.envs
+        # set path and logger 
+        # 현재는 PROJECT PATH 보다 한 층 위 folder에서 실행 중 
+        self.project_home = self.asset_envs['project_home']
+        # log file path 
+        self.artifact_dir = '.train_artifacts/' if self.asset_envs['pipeline'] == 'train_pipeline' else '.inference_artifacts/'
+        self.log_file_path = self.project_home + self.artifact_dir + "log/pipeline.log"
+        self.asset_envs['log_file_path'] = self.log_file_path
         # init logger 
         self.logger = Logger(self.asset_envs)
         try:
@@ -61,16 +67,10 @@ class Asset:
             # 사용자 API를 허용 횟수에 맞게 호출 했는 지 count 
             for k in ['load_data', 'load_config', 'save_data', 'save_config']:
                 self.asset_envs[k] = 0 
-            # 현재는 PROJECT PATH 보다 한 층 위 folder에서 실행 중 
-            self.project_home = self.asset_envs['project_home']
             # input 데이터 경로 
             self.input_data_home = self.project_home + "input/"
             # asset 코드들의 위치
             self.asset_home = self.project_home + "assets/"
-            # log file path 
-            self.artifact_dir = '.train_artifacts/' if self.asset_envs['pipeline'] == 'train_pipeline' else '.inference_artifacts/'
-            self.log_file_path = self.project_home + self.artifact_dir + "log/pipeline.log"
-            self.asset_envs['log_file_path'] = self.log_file_path
             # args
             self.asset_args = asset_structure.args
             # data
@@ -94,6 +94,8 @@ class Asset:
     def save_error(self, msg):
         self.logger.asset_error(msg)
 
+    def get_input_path(self): 
+        return self.input_data_home + self.asset_envs['pipeline'].split('_')[0] + '/'
 
     def load_args(self):
         """ Description
@@ -119,26 +121,25 @@ class Asset:
             -----------
             Return
             -----------
-                - config  (OrderedDict)
+                - config  (dict)
             Example
             -----------
                 - config = load_config()
         """
         if self.asset_envs['interface_mode'] == 'memory':
             self.asset_envs['load_config'] += 1
-            # 사용자가 추가 key 생성할 때를 대비해 ordered dict화 필요할 듯. 이미 OrderedDict 여도 또 Orderedict 씌워도 에러는 안남
-            return OrderedDict(self.asset_config)
+            return self.asset_config
         elif self.asset_envs['interface_mode'] == 'file':
             # FIXME 첫번째 step일 경우는 pkl 파일 저장된 거 없으므로 memory interface랑 동일하게 일단 진행 
             if self.asset_envs['num_step'] == 0: 
                 self.asset_envs['load_config'] += 1
-                return OrderedDict(self.asset_config)
+                return self.asset_config
             try:
                 # 이전 스탭에서 저장했던 pkl을 가져옴 
                 file_path = self.asset_envs['artifacts']['.asset_interface'] + self.asset_envs['pipeline'] + "/" + self.asset_envs['prev_step'] + "_config.pkl"
                 config = load_file(file_path)
                 self.asset_envs['load_config'] += 1
-                return OrderedDict(config)
+                return config
             except Exception as e:
                 self.logger.asset_error(str(e))     
         else: 
@@ -195,7 +196,7 @@ class Asset:
                 - 사용자가 특정 asset에서 load_config() 후 업데이트한 config를 다음 asset으로 전달해줍니다. 
             Parameters
             -----------
-                - config (dict or OrderedDict) 
+                - config (dict) 
             Return
             -----------
                 - 
@@ -215,11 +216,8 @@ class Asset:
                 if not os.path.exists(dir_path):
                     os.makedirs(dir_path)
                     self.logger.asset_info(f"<< {dir_path} >> directory created for << save_config >>")
-                config_file = dir_path + self.asset_envs['step']
-                if (type(config) == OrderedDict) or (type(config) == dict):
-                    config_file = config_file + "_config.pkl"
-                else:
-                    self.logger.asset_error(f"The type of data must be << dict or OrderedDict >>. \n - current type: {type(config)}")
+                config_file = dir_path + self.asset_envs['step'] + "_config.pkl"
+                # save config file 
                 save_file(config, config_file)
                 self.asset_config = config 
                 self.asset_envs['save_config'] += 1
@@ -230,62 +228,49 @@ class Asset:
     
     
     # FIXME data도 copy()로 돌려줄 필요 있을 지? 
-    def load_data(self, partial_path = '', key_type = 'numbered'):
+    def load_data(self, partial_load = ''):
         """ Description
             -----------
                 - Asset 에 필요한 data를 반환한다.
             Parameters
             -----------
-                - partial_path (str) : {PROJECT_HOME}/alo/input/{pipeline}/ 하위에 존재하는 경로. 부분적으로 해당 경로 내 데이터만 load  
-                - key_type (str) : 'numbered', 'file_path', 'file_name
+                - partial_load (str) : 부분적으로 해당 str를 포함하는 key만 load  
             Return
             -----------
-                - data  (dict or OrderedDict)
+                - data  (dict)
             Example 1
             -----------
                 - data = load_data()
             Example 2 
             -----------
-                - data = load_data(partial_path = '231212/source/', key_type = 'file_path') 
+                - data = load_data(partial_load = '231212/source/') 
         """
         # arg type check - str
-        # check partial_path
-        if len(partial_path) > 0:  
-            input_path = self.input_data_home + self.asset_envs['pipeline'].split('_')[0] + '/' + partial_path
-            if (not isinstance(partial_path, str)) or (not os.path.exists(input_path)):
-                self.logger.asset_error(f"The type of << partial_path >> must be string. \n Also, the path << {partial_path} must exist in << {input_path} >>")
-        # check key_type 
-        if (not isinstance(key_type, str)) or (key_type not in ['numbered', 'file_path', 'file_name']):
-            self.logger.asset_error(f"The type of << key_type >> must be string. \n - Allowed values: << numbered >> or << file_path >> or << file_name >>")
-        # input df - path mapping dict existence check 
-        if "input_asset_df_path" not in self.asset_config.keys():
-            self.logger.asset_error(f"<< input_asset_df_path >> key not in asset_config")
-            
-        # self.asset_data key convert (numbered(dataframeN) or file_path or file_name)
-        self.asset_data = self._convert_load_data_keys(self.asset_data, key_type)
+        # check partial_load
+        if len(partial_load) > 0:  
+            if not isinstance(partial_load, str):
+                self.logger.asset_error(f"The type of << partial_load >> must be string.")
         # partial extract from asset data
-        if len(partial_path) > 0: 
-            self.asset_data = self._extract_partial_data(self.asset_data, partial_path)
-        
+        data = self._extract_partial_data(self.asset_data, partial_load) if len(partial_load) > 0 else self.asset_data
+        if len(data) == 0: 
+            self.logger.asset_error(f"Failed to partially load data. No key exists containing << {partial_load} >> in loaded data.") 
         # return or save asset data 
         if self.asset_envs['interface_mode'] == 'memory':
             self.asset_envs['load_data'] += 1
-            # 사용자가 추가 key 생성할 때를 대비해 ordered dict화 필요할 듯. 이미 OrderedDict 여도 또 Orderedict 씌워도 에러는 안남 
-            return OrderedDict(self.asset_data)
+            return data
         elif self.asset_envs['interface_mode'] == 'file':
             # FIXME 첫번째 step일 경우는 pkl 파일 저장된 거 없으므로 memory interface랑 동일하게 일단 진행 
             if self.asset_envs['num_step'] == 0: 
                 self.asset_envs['load_data'] += 1
-                return OrderedDict(self.asset_data)
+                return data 
             try:
                 # 이전 스탭에서 저장했던 pkl을 가져옴 
                 file_path = self.asset_envs['artifacts']['.asset_interface'] + self.asset_envs['pipeline'] + "/" + self.asset_envs['prev_step'] + "_data.pkl"
                 data = load_file(file_path)
-                data = self._convert_load_data_keys(data, key_type)
-                if len(partial_path) > 0: 
-                    data = self._extract_partial_data(data, partial_path)
+                # partial extract from asset data
+                data = self._extract_partial_data(data, partial_load) if len(partial_load) > 0 else data
                 self.asset_envs['load_data'] += 1
-                return OrderedDict(data)
+                return data
             except Exception as e:
                 self.logger.asset_error(str(e))     
         else: 
@@ -299,7 +284,7 @@ class Asset:
                 - 사용자가 특정 asset에서 load_data() 후 업데이트한 data를 다음 asset으로 전달해줍니다. 
             Parameters
             -----------
-                - data (dict or OrderedDict) 
+                - data (dict) 
             Return
             -----------
                 - 
@@ -319,12 +304,10 @@ class Asset:
                 if not os.path.exists(dir_path):
                     os.makedirs(dir_path)
                     self.logger.asset_info(f"<< {dir_path} >> directory created for << save_data >>")
-                data_file = dir_path + self.asset_envs['step']
-                if (type(data) == OrderedDict) or (type(data) == dict):
-                    data_file = data_file + "_data.pkl"
-                else:
-                    self.logger.asset_error(f"The type of data must be << dict or OrderedDict >> \n - current type: {type(data)}")
+                data_file = dir_path + self.asset_envs['step'] + "_data.pkl"
+                # save file 
                 save_file(data, data_file)
+                # 클래스 내부 변수화 
                 self.asset_data = data
                 self.asset_envs['save_data'] += 1
             except Exception as e:
@@ -641,75 +624,15 @@ class Asset:
     #                                                         USER API Internal Function
     #--------------------------------------------------------------------------------------------------------------------------
 
-    def _convert_load_data_keys(self, _asset_data, _key_type): 
+    def _extract_partial_data(self, _asset_data, _partial_load):             
         """ Description
             -----------
-                - load_data 시 사용자에게 반환되는 data dict의 key를 사용자가 입력한 key_type으로 변경합니다. 
-                
-            Parameters
-            -----------
-                - _asset_data (dict) :  data dict
-                - key_type    (str) : 'numbered', 'file_path', 'file_name'
-                
-            Return
-            -----------
-                - _asset_data        : key 변경된 asset data 
-                
-            Example
-            -----------
-                - asset_data = self._convert_load_data_keys(_asset_data, key_type)
-        """
-        # partial path에 대한 input data mother 경로 
-        input_pipe_path = self.input_data_home + self.asset_envs['pipeline'].split('_')[0]
-        # get current key type 
-        current_key_type = '' 
-        # input asset 바로 다음 asset을 위해 아래 if 문 필요 
-        if 'data_key_type' not in self.asset_config.keys():
-            if ('dataframe' in _asset_data.keys()) or ('dataframe0' in _asset_data.keys()):
-                current_key_type = 'numbered'
-                # {'numbered':list, 'file_path':list, 'file_name':list} 형태로 data key mapping table 초기화 
-                ## ordered_key_map = OrderedDict(self.asset_config["input_asset_df_path"])
-                # FIXME input_path_mapping_dict 의 value가 리스트일 때는 일단 미지원으로 에러 발생(concat_dataframes = True 인 경우)
-                for k, v in self.asset_config["input_asset_df_path"].items(): 
-                    if isinstance(v, list) and _key_type != 'numbered':
-                        self.logger.asset_error(f"Only << numbered; dataframe1, dataframe2.. >> key type is allowed when input asset arguement << concat_dataframses >> is << True >>. \n - Your input key_type: << {key_type} >>")  
-                    elif isinstance(v, list) and _key_type == 'numbered':
-                        return  _asset_data 
-                # concat_dataframes = False일 경우 data_key_map 생성 
-                # input asset 바로 다음 asset에서 최초 생성 *****
-                self.asset_config['data_key_map'] = \
-                    {'numbered': [k for k, v in self.asset_config["input_asset_df_path"].items()],  \
-                    'file_path': [v.replace(input_pipe_path + '/', '') for k, v in self.asset_config["input_asset_df_path"].items()],  \
-                    'file_name': [os.path.basename(v) for k, v in self.asset_config["input_asset_df_path"].items()]}
-        else:
-            # 이전 step 에서 save data 할 때의 data_key_type을 가져올 것임
-            current_key_type = self.asset_config['data_key_type']  
-        # data_key_type 을 config에 담아서 global로 활용 가능하도록 *****
-        self.asset_config['data_key_type'] = current_key_type 
-        # convert to user input key type 
-        try: 
-            current_key_list = list(_asset_data.keys())
-            target_key_list = self.asset_config['data_key_map'][_key_type]
-            if set(current_key_list) == set(target_key_list): # 이미 key_type이 같으면 그냥 그대로 반환 
-                return _asset_data
-            for i in range(len(target_key_list)): 
-                _asset_data[target_key_list[i]] = _asset_data.pop(current_key_list[i])
-            # data_key_type update *****
-            self.asset_config['data_key_type'] = _key_type
-            return _asset_data
-        except: 
-            self.logger.asset_error(f"Failed to load_data() when converting key_type from << {current_key_type} >> to << {key_type} >>.") 
-
-
-    def _extract_partial_data(self, _asset_data, _partial_path):             
-        """ Description
-            -----------
-                - load_data 시 사용자에게 반환되는 data dict의 key 중 _partial_path를 담고 있는 것만 추려서 data dict를 반환합니다. 
+                - load_data 시 사용자에게 반환되는 data dict의 key 중 _partial_load를 담고 있는 것만 추려서 data dict를 반환합니다. 
                 
             Parameters
             -----------
                 - _asset_data (dict)    :  data dict
-                - _partial_path (str)   : {HOME}/input/{pipline}/ 하위에 존재하는 경로 
+                - _partial_load (str)   : {HOME}/input/{pipline}/ 하위에 존재하는 경로 
                 
             Return
             -----------
@@ -717,18 +640,15 @@ class Asset:
                 
             Example
             -----------
-                - asset_data = self._extract_partial_data(_asset_data, _partial_path)
+                - asset_data = self._extract_partial_data(_asset_data, _partial_load)
         """
-        # 부분적으로 추릴 key의 data_key_map index 추출 및 list화 
-        partial_idx_list = [] 
-        for idx, _file_path in enumerate(self.asset_config['data_key_map']['file_path']): 
-            if _partial_path in _file_path:  
-                partial_idx_list.append(idx)
-        # partial key list 추출 
-        current_key_list = self.asset_config['data_key_map'][self.asset_config['data_key_type']]
-        partial_key_list = [current_key_list[i] for i in partial_idx_list]     
+        # 부분적으로 추릴 key를 list화 
+        partial_key_list = [] 
+        for k in _asset_data.keys(): 
+            if _partial_load in k:  
+                partial_key_list.append(k)
         # partial k,v extract from asset_data
-        return OrderedDict(dict(filter(lambda item: item[0] in partial_key_list, _asset_data.items())))
+        return dict(filter(lambda item: item[0] in partial_key_list, _asset_data.items()))
         
         
     def _check_config_key(self, prev_config):
@@ -785,36 +705,6 @@ class Asset:
             self.logger.asset_error(f"Do not remove keys contaning the word << dataframe >>. \n You removed: {set(prev_keys) - set(cur_keys)}")
         if prev_keys != cur_keys: 
             self.logger.asset_error(f"Do not modify keys contaning the word << dataframe >>. \n - Previous step: {prev_keys} \n - Current step: {cur_keys}") 
-
-
-    def _update_data_key_map(self, prev_data):
-        """ Description
-            -----------
-                - 특정 asset에서 사용자가 data dict에 새로운 custom key 추가 시 해당 key를 data_key_map에 업데이트 해줌 
-                
-            Parameters
-            -----------
-                - prev_data (dict)    : 이전 asset에서 save한 data
-                
-            Return
-            -----------
-                -
-                
-            Example
-            -----------
-                - self._update_data_key_map(prev_data)
-        """
-        # input asset의 concat_dataframes = True인 경우 data_key_map을 지원 X 
-        if 'data_key_map' not in self.asset_config.keys(): 
-            return 
-        # 이미 _check_data_key 호출을 통해 dataframe 이름이 들어간 비정상적인 key 추가는 걸러진 상태 
-        added_key_list = []
-        for k in self.asset_data.keys(): 
-            if k not in prev_data.keys():
-                added_key_list.append(k)
-        for i in added_key_list: 
-            for k in self.asset_config['data_key_map'].keys(): 
-                self.asset_config['data_key_map'][k].append(i)
 
 
     def check_args(self, arg_key, is_required=False, default="", chng_type="str" ):
@@ -953,8 +843,6 @@ class Asset:
                     # input step 이외에, 이번 step에서 사용자가 dataframe이라는 문자를 포함한 key를 새로 추가하지 않았는 지 체크 
                     # 기존 데이터 key를 삭제하지 않았는 지 체크 
                     self._check_data_key(prev_data)
-                    # 새로 추가한 data key가 있다면 self.asset_config['data_key_map']에 추가 (단, numbered, file_path, file_name 모두 같은 이름으로 추가) ***
-                    self._update_data_key_map(prev_data)
             except:
                 self.logger.asset_error(f"Failed to run << {step} >>")
             # print asset finish info.
