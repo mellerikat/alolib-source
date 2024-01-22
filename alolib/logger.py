@@ -72,7 +72,7 @@ class ProcessLogger:
             "formatters": {
                 "proc_console": {
                     "()": ColorizedArgsFormatter,
-                    "format": f"[%(levelname)s][PROCESS][%(asctime)s]: %(message)s"
+                    "format": f"[%(levelname)s][PROCESS][%(asctime)s]: %(message)s" # [%(filename)s:%(lineno)d]
                 },
                 "meta_console": {
                     "()": ColorizedArgsFormatter,
@@ -104,7 +104,8 @@ class ProcessLogger:
                     "level": "INFO",
                 },
             },
-            "root": {"handlers": ["console", "file_train", "file_inference"], "level": "INFO"},
+            #"root": {"handlers": ["console", "file_train", "file_inference"], "level": "INFO"},
+            "root": {"handlers": ["file_train", "file_inference"], "level": "INFO"},
             "loggers": {"ERROR": {"level": "ERROR"}, "WARNING": {"level": "WARNING"}, "INFO": {"level": "INFO"}}
         }
         self.meta_logging_config = deepcopy(self.process_logging_config)
@@ -189,24 +190,28 @@ class Logger:
     #    ALOlib asset & UserAsset Logging
     #--------------------------------------------------------------------------------------------------------------------------
      
-    def asset_info(self, msg): 
+    def asset_info(self, msg, msg_loc=None): 
         # UserAsset API에서도 쓰므로 str type check 필요  
         if not isinstance(msg, str):
             self.asset_error("Failed to run asset_info(). Only support << str >> type for the argument.")
         logging.config.dictConfig(self.asset_logging_config) # file handler only logging config 
         info_logger = logging.getLogger("INFO") 
+        if msg_loc is not None: 
+            msg = f"[{msg_loc}]" + msg
         info_logger.info(f'{msg}')
 
    
-    def asset_warning(self, msg):
+    def asset_warning(self, msg, msg_loc=None):
         if not isinstance(msg, str):
             self.asset_error("Failed to run asset_warning(). Only support << str >> type for the argument.")
         logging.config.dictConfig(self.asset_logging_config) # file handler only logging config 
         warning_logger = logging.getLogger("WARNING") 
+        if msg_loc is not None: 
+            msg = f"[{msg_loc}]" + msg
         warning_logger.warning(f'{msg}')
     
     
-    def asset_error(self, msg):
+    def asset_error(self, msg, msg_loc=None):
         # stdout 
         time_utc = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S,%f')[:-3]
         if not isinstance(msg, str):
@@ -215,14 +220,23 @@ class Logger:
             error_logger = logging.getLogger("ERROR") 
             error_logger.error(f'{formatted_msg}') #, stack_info=True, exc_info=True)
             raise
-        
-        formatted_msg = "".join([
-            f"\n\n============================= ASSET ERROR =============================\n",
-            f"TIME(UTC)   : {time_utc}\n",
-            f"PIPELINE    : {self.pipeline}\n",
-            f"STEP        : {self.step}\n",
-            f"ERROR(msg)  : {msg}\n",
-            f"=======================================================================\n\n"])
+        if msg_loc is None:     
+            formatted_msg = "".join([
+                f"\n\n============================= ASSET ERROR =============================\n",
+                f"TIME(UTC)   : {time_utc}\n",
+                f"PIPELINE    : {self.pipeline}\n",
+                f"STEP        : {self.step}\n",
+                f"ERROR(msg)  : {msg}\n",
+                f"=======================================================================\n\n"])
+        else: 
+            formatted_msg = "".join([
+                f"\n\n============================= ASSET ERROR =============================\n",
+                f"TIME(UTC)   : {time_utc}\n",
+                f"PIPELINE    : {self.pipeline}\n",
+                f"STEP        : {self.step}\n",
+                f"ERROR(msg)  : {msg}\n",
+                f"ERROR(loc)  : {msg_loc}\n",
+                f"=======================================================================\n\n"])
         # log file save 
         logging.config.dictConfig(self.asset_logging_config) # file handler only logging config 
         error_logger = logging.getLogger("ERROR") 

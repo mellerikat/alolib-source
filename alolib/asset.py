@@ -7,6 +7,7 @@ import json
 import os
 import pickle
 from pytz import timezone
+from inspect import getframeinfo, stack
 import shutil
 import yaml
 
@@ -84,18 +85,28 @@ class Asset:
     #                                                         UserAsset API
     #--------------------------------------------------------------------------------------------------------------------------
     def save_info(self, msg):
-        self.logger.asset_info(msg)
+        # caller: error 발생 위치 파악용 
+        # 참고: https://stackoverflow.com/questions/24438976/debugging-get-filename-and-line-number-from-which-a-function-is-called
+        caller = getframeinfo(stack()[1][0])
+        msg_loc = f"{caller.filename}:{caller.lineno}"
+        self.logger.asset_info(msg, msg_loc)
         
         
     def save_warning(self, msg):
-        self.logger.asset_warning(msg)
+        caller = getframeinfo(stack()[1][0])
+        msg_loc = f"{caller.filename}:{caller.lineno}"
+        self.logger.asset_warning(msg, msg_loc)
         
         
     def save_error(self, msg):
-        self.logger.asset_error(msg)
+        caller = getframeinfo(stack()[1][0])
+        msg_loc = f"{caller.filename}:{caller.lineno}"
+        self.logger.asset_error(msg, msg_loc)
+
 
     def get_input_path(self): 
         return self.input_data_home + self.asset_envs['pipeline'].split('_')[0] + '/'
+
 
     def load_args(self):
         """ Description
@@ -772,6 +783,8 @@ class Asset:
 
                 
     def _asset_start_info(self):
+        caller = getframeinfo(stack()[1][0])
+        msg_loc = f"{caller.filename}:{caller.lineno}"
         msg = "".join(["\033[36m", # dark cyan
             f"\n\n=========================================================== ASSET START ===========================================================\n",
             f"- time (UTC)        : {datetime.now(timezone('UTC')).strftime('%Y-%m-%d %H:%M:%S')}\n",
@@ -789,6 +802,7 @@ class Asset:
 
 
     def _asset_finish_info(self): 
+
         msg = "".join(["\033[36m", # dark cyan
             f"\n\n=========================================================== ASSET FINISH ===========================================================\n",
             f"- time (UTC)        : {datetime.now(timezone('UTC')).strftime('%Y-%m-%d %H:%M:%S')}\n",
@@ -844,7 +858,8 @@ class Asset:
                     # 기존 데이터 key를 삭제하지 않았는 지 체크 
                     self._check_data_key(prev_data)
             except:
-                self.logger.asset_error(f"Failed to run << {step} >>")
+                raise 
+                # self.logger.asset_error(f"Failed to run << {step} >>")
             # print asset finish info.
             self._asset_finish_info()
             
