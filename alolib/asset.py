@@ -85,20 +85,16 @@ class Asset:
     #                                                         UserAsset API
     #--------------------------------------------------------------------------------------------------------------------------
     def save_info(self, msg):
-        # caller: error 발생 위치 파악용 
-        # 참고: https://stackoverflow.com/questions/24438976/debugging-get-filename-and-line-number-from-which-a-function-is-called
-        caller = getframeinfo(stack()[1][0])
-        msg_loc = f"{caller.filename}:{caller.lineno}"
-        self.logger.asset_info(msg, msg_loc)
+        self.logger.asset_info(msg)
         
         
     def save_warning(self, msg):
-        caller = getframeinfo(stack()[1][0])
-        msg_loc = f"{caller.filename}:{caller.lineno}"
-        self.logger.asset_warning(msg, msg_loc)
+        self.logger.asset_warning(msg)
         
         
     def save_error(self, msg):
+        # caller: error 발생 위치 파악용 
+        # 참고: https://stackoverflow.com/questions/24438976/debugging-get-filename-and-line-number-from-which-a-function-is-called
         caller = getframeinfo(stack()[1][0])
         msg_loc = f"{caller.filename}:{caller.lineno}"
         self.logger.asset_error(msg, msg_loc)
@@ -783,8 +779,6 @@ class Asset:
 
                 
     def _asset_start_info(self):
-        caller = getframeinfo(stack()[1][0])
-        msg_loc = f"{caller.filename}:{caller.lineno}"
         msg = "".join(["\033[36m", # dark cyan
             f"\n\n=========================================================== ASSET START ===========================================================\n",
             f"- time (UTC)        : {datetime.now(timezone('UTC')).strftime('%Y-%m-%d %H:%M:%S')}\n",
@@ -802,7 +796,6 @@ class Asset:
 
 
     def _asset_finish_info(self): 
-
         msg = "".join(["\033[36m", # dark cyan
             f"\n\n=========================================================== ASSET FINISH ===========================================================\n",
             f"- time (UTC)        : {datetime.now(timezone('UTC')).strftime('%Y-%m-%d %H:%M:%S')}\n",

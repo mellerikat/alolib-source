@@ -104,8 +104,8 @@ class ProcessLogger:
                     "level": "INFO",
                 },
             },
-            #"root": {"handlers": ["console", "file_train", "file_inference"], "level": "INFO"},
-            "root": {"handlers": ["file_train", "file_inference"], "level": "INFO"},
+            "root": {"handlers": ["console", "file_train", "file_inference"], "level": "INFO"},
+            #"root": {"handlers": ["file_train", "file_inference"], "level": "INFO"},
             "loggers": {"ERROR": {"level": "ERROR"}, "WARNING": {"level": "WARNING"}, "INFO": {"level": "INFO"}}
         }
         self.meta_logging_config = deepcopy(self.process_logging_config)
@@ -190,24 +190,20 @@ class Logger:
     #    ALOlib asset & UserAsset Logging
     #--------------------------------------------------------------------------------------------------------------------------
      
-    def asset_info(self, msg, msg_loc=None): 
+    def asset_info(self, msg): 
         # UserAsset API에서도 쓰므로 str type check 필요  
         if not isinstance(msg, str):
             self.asset_error("Failed to run asset_info(). Only support << str >> type for the argument.")
         logging.config.dictConfig(self.asset_logging_config) # file handler only logging config 
         info_logger = logging.getLogger("INFO") 
-        if msg_loc is not None: 
-            msg = f"[{msg_loc}]" + msg
         info_logger.info(f'{msg}')
 
    
-    def asset_warning(self, msg, msg_loc=None):
+    def asset_warning(self, msg):
         if not isinstance(msg, str):
             self.asset_error("Failed to run asset_warning(). Only support << str >> type for the argument.")
         logging.config.dictConfig(self.asset_logging_config) # file handler only logging config 
         warning_logger = logging.getLogger("WARNING") 
-        if msg_loc is not None: 
-            msg = f"[{msg_loc}]" + msg
         warning_logger.warning(f'{msg}')
     
     
