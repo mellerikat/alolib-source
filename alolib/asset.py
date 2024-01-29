@@ -596,7 +596,7 @@ class Asset:
         elif current_pipe_mode == 'inference_pipeline': 
             output_path = self.asset_envs["artifacts"][".inference_artifacts"] + f"output/"
             os.makedirs(output_path, exist_ok=True)
-        self.logger.asset_info(f"Successfully got << output path >> for saving your data into csv or jpg file: \n {output_path} \n - [NOTE] ""The names of output file must be fixed as << output.csv, output.jpg >>"" ")
+        self.logger.asset_info(f"Successfully got << output path >> for saving your data into csv or jpg file: \n {output_path}")
         
         return output_path
 
