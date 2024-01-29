@@ -32,6 +32,7 @@ class Asset:
             '.train_artifacts': {
                 'score': {},
                 'output': {},
+                'extra_output': {},
                 'log': {},
                 'report': {},
                 'models': {}
@@ -39,6 +40,7 @@ class Asset:
             '.inference_artifacts': {
                 'score': {},
                 'output': {},
+                'extra_output':{},
                 'log': {},
             },
             '.asset_interface': {},
@@ -568,7 +570,8 @@ class Asset:
         """ Description
             -----------
                 - train 혹은 inference artifacts output을 저장할 경로 반환 
-                - 이름은 output.csv, output.jpg 로 고정 (정책)
+                - .train(or inference)_artifacts/output/ 경로를 반환 
+                - 이름은 output.csv, output.jpg 로 고정 (정책) > AI Adivsor retrain 목적 
             Parameters
             -----------
             Return
@@ -576,7 +579,7 @@ class Asset:
                 - output_path: 산출물을 저장할 output 경로 
             Example
             -----------
-                - output_path = get_output_path("csv")
+                - output_path = get_output_path()
         """
         # yaml에 잘 "train_pipeline" or "inference_pipeline" 라고 잘 입력했는지 체크
         # self.asset_envs['pipeline'] check  - self.asset_envs['pipeline']은 main.py에서 설정
@@ -586,17 +589,51 @@ class Asset:
             self.logger.asset_error(f"You entered the wrong parameter for << user_parameters >> in your config yaml file : << {current_pipe_mode} >>. \n - ""You can select the pipeline_mode among << {allowed_pipeline_mode_list} >>"" ")
         # create output path 
         output_path = ""
-        current_step_name = self.asset_envs['step'] 
+        
         if  current_pipe_mode == "train_pipeline":
-            output_path = self.asset_envs["artifacts"][".train_artifacts"] + f"output/{current_step_name}/"
+            output_path = self.asset_envs["artifacts"][".train_artifacts"] + f"output/"
             os.makedirs(output_path, exist_ok=True) # exist_ok =True : 이미 존재하면 그대로 둠 
         elif current_pipe_mode == 'inference_pipeline': 
-            output_path = self.asset_envs["artifacts"][".inference_artifacts"] + f"output/{current_step_name}/"
+            output_path = self.asset_envs["artifacts"][".inference_artifacts"] + f"output/"
             os.makedirs(output_path, exist_ok=True)
         self.logger.asset_info(f"Successfully got << output path >> for saving your data into csv or jpg file: \n {output_path} \n - [NOTE] ""The names of output file must be fixed as << output.csv, output.jpg >>"" ")
         
         return output_path
 
+
+    def get_extra_output_path(self):
+        """ Description
+            -----------
+                - Advisor retrain 목적을 위한 것이 아닌 다른 목적을 위한 output 파일들을 저장할 경로를 반환 (ex. splunk indexing을 위한..)
+                - .train(or inference)_artifacts/output/ 경로를 반환 
+            Parameters
+            -----------
+            Return
+            -----------
+                - extra_output_path: extra 산출물을 저장할 output 경로 
+            Example
+            -----------
+                - extra_output_path = get_extra_output_path()
+        """
+        # yaml에 잘 "train_pipeline" or "inference_pipeline" 라고 잘 입력했는지 체크
+        # self.asset_envs['pipeline'] check  - self.asset_envs['pipeline']은 main.py에서 설정
+        allowed_pipeline_mode_list = ["train_pipeline",  "inference_pipeline"]
+        current_pipe_mode = self.asset_envs['pipeline']
+        if current_pipe_mode  not in allowed_pipeline_mode_list: 
+            self.logger.asset_error(f"You entered the wrong parameter for << user_parameters >> in your config yaml file : << {current_pipe_mode} >>. \n - ""You can select the pipeline_mode among << {allowed_pipeline_mode_list} >>"" ")
+        # create output path 
+        extra_output_path = ""
+        current_step_name = self.asset_envs['step'] 
+        if  current_pipe_mode == "train_pipeline":
+            extra_output_path = self.asset_envs["artifacts"][".train_artifacts"] + f"extra_output/{current_step_name}/"
+            os.makedirs(extra_output_path, exist_ok=True) # exist_ok =True : 이미 존재하면 그대로 둠 
+        elif current_pipe_mode == 'inference_pipeline': 
+            extra_output_path = self.asset_envs["artifacts"][".inference_artifacts"] + f"extra_output/{current_step_name}/"
+            os.makedirs(extra_output_path, exist_ok=True)
+        self.logger.asset_info(f"Successfully got << extra output path >> for saving your output data: \n {extra_output_path} ")
+        
+        return extra_output_path
+    
 
     def get_report_path(self):
         """ Description
