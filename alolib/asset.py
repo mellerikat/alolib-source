@@ -655,7 +655,7 @@ class Asset:
         allowed_pipeline_mode_list = ["train_pipeline"]
         current_pipe_mode = self.asset_envs['pipeline']
         if current_pipe_mode  not in allowed_pipeline_mode_list: 
-            self.logger.asset_error(f"You entered the wrong parameter for << user_parameters >> in your config yaml file : << {current_pipe_mode} >>. \n L ""You can select the pipeline_mode among << {allowed_pipeline_mode_list} >>"" ")
+            self.logger.asset_error(f"<< get_report_path >> only can be used in << train pipeline >> \n Now: << {current_pipe_mode} >> ")
         # create report path 
         report_path = self.asset_envs["artifacts"][".train_artifacts"] + "report/"
         os.makedirs(report_path, exist_ok=True) # exist_ok =True : 이미 존재하면 그대로 둠 
