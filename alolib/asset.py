@@ -29,7 +29,7 @@ class Asset:
         self.asset = self
         self.artifacts_structure = {
             'input': {}, 
-            '.train_artifacts': {
+            'train_artifacts': {
                 'score': {},
                 'output': {},
                 'extra_output': {},
@@ -37,7 +37,7 @@ class Asset:
                 'report': {},
                 'models': {}
             },
-            '.inference_artifacts': {
+            'inference_artifacts': {
                 'score': {},
                 'output': {},
                 'extra_output':{},
@@ -54,7 +54,7 @@ class Asset:
         # 현재는 PROJECT PATH 보다 한 층 위 folder에서 실행 중 
         self.project_home = self.asset_envs['project_home']
         # log file path 
-        self.artifact_dir = '.train_artifacts/' if self.asset_envs['pipeline'] == 'train_pipeline' else '.inference_artifacts/'
+        self.artifact_dir = 'train_artifacts/' if self.asset_envs['pipeline'] == 'train_pipeline' else 'inference_artifacts/'
         self.log_file_path = self.project_home + self.artifact_dir + "log/pipeline.log"
         self.asset_envs['log_file_path'] = self.log_file_path
         # init logger 
@@ -344,9 +344,9 @@ class Asset:
         # [참고] self.asset_envs['pipeline'] 는 main.py에서 설정됨 
         # FIXME train_summary는 spec-in 계획에 없으면 아래 코드는 사라져도 됨. 
         if self.asset_envs['pipeline']  == "train_pipeline":
-            yaml_file_path = self.asset_envs["artifacts"][".train_artifacts"] + "score/" + "train_summary.yaml" 
+            yaml_file_path = self.asset_envs["artifacts"]["train_artifacts"] + "score/" + "train_summary.yaml" 
         elif self.asset_envs['pipeline'] == "inference_pipeline":
-            yaml_file_path = self.asset_envs["artifacts"][".inference_artifacts"] + "score/" + "inference_summary.yaml" 
+            yaml_file_path = self.asset_envs["artifacts"]["inference_artifacts"] + "score/" + "inference_summary.yaml" 
         else: 
             self.logger.asset_error(f"You have written wrong value for << asset_source  >> in the config yaml file. - { self.asset_envs['pipeline']} \n Only << train_pipeline >> and << inference_pipeline >> are permitted")
         # 이전의 asset 들 중에서 save_summary를 이미 한 상태여야 summary yaml 파일이 존재할 것이고, load가 가능함 
@@ -442,9 +442,9 @@ class Asset:
         # FIXME 현재 tcr 처럼 save summary 부터 하고 output file 저장할 수도 있으므로 output 파일 생성 체크는 추후에 다른 곳에서 하거나 에러나게 해야할 듯. *****
         '''
         #FIXME 일단 summary yaml 수정 후 save summary 다시할 땐 꼭 output.csv, output.jpg를 다시 해당 step에서 만든 상태일 필요 없으므로 output path 체크는 모든 step 걸쳐 하나만 있음되도록 수정함 
-        # FIXME .inference_artifacts/output/[현재 step >> 대부분 inference일 것] 내에 output 파일이 없으면 에러         
+        # FIXME inference_artifacts/output/[현재 step >> 대부분 inference일 것] 내에 output 파일이 없으면 에러         
         output_file_path = self.artifact_dir + 'output/'
-        # .inference_artifacts/output 내의 파일의 확장자가 지원하지 않는 타입이면 에러 
+        # inference_artifacts/output 내의 파일의 확장자가 지원하지 않는 타입이면 에러 
         # FIXME 일단 summary yaml 수정 후 save summary 다시할 땐 꼭 output.csv, output.jpg를 다시 해당 step에서 만든 상태일 필요 없으므로 output path 체크는 모든 step 걸쳐 하나만 있음되도록 수정함 
         output_file_cnt = 0
         for (path, dir, files) in os.walk(output_file_path):
@@ -488,9 +488,9 @@ class Asset:
         }
         # [참고] self.asset_envs['pipeline'] 는 main.py에서 설정 
         if self.asset_envs['pipeline']  == "train_pipeline":
-            file_path = self.asset_envs["artifacts"][".train_artifacts"] + "score/" + "train_summary.yaml" 
+            file_path = self.asset_envs["artifacts"]["train_artifacts"] + "score/" + "train_summary.yaml" 
         elif self.asset_envs['pipeline'] == "inference_pipeline":
-            file_path = self.asset_envs["artifacts"][".inference_artifacts"] + "score/" + "inference_summary.yaml" 
+            file_path = self.asset_envs["artifacts"]["inference_artifacts"] + "score/" + "inference_summary.yaml" 
         else: 
             self.logger.asset_error(f"You have written wrong value for << asset_source  >> in the config yaml file. - { self.asset_envs['pipeline']} \n Only << train_pipeline >> and << inference_pipeline >> are permitted")
         # save summary yaml 
@@ -538,10 +538,10 @@ class Asset:
         # TODO train2도 train등으로 읽어 오게 수정 논의 필요
         current_step_name = ''.join(filter(lambda x: x.isalpha() or x == '_', current_step_name))
         # TODO use_inference_path true인 경우 inference path 사용하게 수정
-        artifacts_name = ".train_artifacts"
+        artifacts_name = "train_artifacts"
         if use_inference_path == True and current_pipe_mode == "inference_pipeline":
             # infernce path를 사용
-            artifacts_name = ".inference_artifacts"
+            artifacts_name = "inference_artifacts"
         elif use_inference_path == True and current_pipe_mode != "inference_pipeline":
             self.logger.asset_error("If you set 'use_inference_path' to True, it should operate in the inference pipeline.")
         # 모델 경로 
@@ -591,10 +591,10 @@ class Asset:
         output_path = ""
         
         if  current_pipe_mode == "train_pipeline":
-            output_path = self.asset_envs["artifacts"][".train_artifacts"] + f"output/"
+            output_path = self.asset_envs["artifacts"]["train_artifacts"] + f"output/"
             os.makedirs(output_path, exist_ok=True) # exist_ok =True : 이미 존재하면 그대로 둠 
         elif current_pipe_mode == 'inference_pipeline': 
-            output_path = self.asset_envs["artifacts"][".inference_artifacts"] + f"output/"
+            output_path = self.asset_envs["artifacts"]["inference_artifacts"] + f"output/"
             os.makedirs(output_path, exist_ok=True)
         self.logger.asset_info(f"Successfully got << output path >> for saving your data into csv or jpg file: \n {output_path}")
         
@@ -625,10 +625,10 @@ class Asset:
         extra_output_path = ""
         current_step_name = self.asset_envs['step'] 
         if  current_pipe_mode == "train_pipeline":
-            extra_output_path = self.asset_envs["artifacts"][".train_artifacts"] + f"extra_output/{current_step_name}/"
+            extra_output_path = self.asset_envs["artifacts"]["train_artifacts"] + f"extra_output/{current_step_name}/"
             os.makedirs(extra_output_path, exist_ok=True) # exist_ok =True : 이미 존재하면 그대로 둠 
         elif current_pipe_mode == 'inference_pipeline': 
-            extra_output_path = self.asset_envs["artifacts"][".inference_artifacts"] + f"extra_output/{current_step_name}/"
+            extra_output_path = self.asset_envs["artifacts"]["inference_artifacts"] + f"extra_output/{current_step_name}/"
             os.makedirs(extra_output_path, exist_ok=True)
         self.logger.asset_info(f"Successfully got << extra output path >> for saving your output data: \n {extra_output_path} ")
         
@@ -657,7 +657,7 @@ class Asset:
         if current_pipe_mode  not in allowed_pipeline_mode_list: 
             self.logger.asset_error(f"<< get_report_path >> only can be used in << train pipeline >> \n Now: << {current_pipe_mode} >> ")
         # create report path 
-        report_path = self.asset_envs["artifacts"][".train_artifacts"] + "report/"
+        report_path = self.asset_envs["artifacts"]["train_artifacts"] + "report/"
         os.makedirs(report_path, exist_ok=True) # exist_ok =True : 이미 존재하면 그대로 둠 
         self.logger.asset_info(f"Successfully got << report path >> for saving your << report.html >> file: \n {report_path}")
         
