@@ -10,6 +10,7 @@ from pytz import timezone
 from inspect import getframeinfo, stack
 import shutil
 import yaml
+from pprint import pformat
 
 #--------------------------------------------------------------------------------------------------------------------------
 #                                                       GLOBAL VARIABLE
@@ -44,7 +45,7 @@ class Asset:
                 'log': {},
             },
             '.asset_interface': {},
-            '.history': {}
+            'history': {}
         }
         self.alolib_version = alolib.__version__ 
         # 1. set envs, args, data, config .. 
@@ -823,10 +824,9 @@ class Asset:
             f"- asset branch.     : {self.asset_branch}\n", 
             f"- alolib ver.       : {self.alolib_version}\n",
             f"- alo ver.          : {self.alo_version}\n",
-            f"- load envs. keys   : {self.asset_envs.keys()}\n",
-            f"- load args. keys   : {self.asset_args.keys()}\n",
             f"- load config. keys : {self.asset_config.keys()}\n", 
             f"- load data keys    : {self.asset_data.keys()}\n",
+            f"- load args.        : {pformat(self.asset_args, width=200, indent=4)}\n",
             f"====================================================================================================================================\n\n",
             "\033[0m"])
         self.logger.asset_info(msg)
