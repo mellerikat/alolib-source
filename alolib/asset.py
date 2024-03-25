@@ -499,6 +499,7 @@ class Asset:
             with open(file_path, 'w') as file:
                 yaml.dump(summary_data, file, default_flow_style=False)
             self.logger.asset_info(f"Successfully saved inference summary yaml. \n >> {file_path}") 
+            self.logger.asset_info(f"Save summary : \n {summary_data}\n")
         except: 
             self.logger.asset_error(f"Failed to save summary yaml file \n @ << {file_path} >>")
              
