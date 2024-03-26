@@ -7,7 +7,7 @@ import json
 import os
 import pickle
 from pytz import timezone
-from inspect import getframeinfo, stack
+import inspect
 import shutil
 import yaml
 from pprint import pformat
@@ -82,7 +82,7 @@ class Asset:
             # config 
             self.asset_config = asset_structure.config
         except Exception as e:
-            self.asset.save_error(str(e))
+            self.logger.asset_error(str(e))
     
     #--------------------------------------------------------------------------------------------------------------------------
     #                                                         UserAsset API
@@ -96,11 +96,7 @@ class Asset:
         
         
     def save_error(self, msg):
-        # caller: error 발생 위치 파악용 
-        # 참고: https://stackoverflow.com/questions/24438976/debugging-get-filename-and-line-number-from-which-a-function-is-called
-        caller = getframeinfo(stack()[1][0])
-        msg_loc = f"{caller.filename}:{caller.lineno}"
-        self.logger.asset_error(msg, msg_loc)
+        self.logger.asset_error(msg)
 
 
     def get_input_path(self): 

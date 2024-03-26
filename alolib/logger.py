@@ -27,11 +27,13 @@ class ColoredFormatter(logging.Formatter):
 def log_decorator(func):
     def wrapper(*args, **kwargs):
         caller_frame = inspect.stack()[1]
-        caller_file = os.path.basename(caller_frame.filename)
-        caller_line = caller_frame.lineno
         # FIXME class name 찾는법 복잡해서 일단 제거 
         #caller_name = caller_frame.
+        if caller_frame.function in ['save_info', 'save_warning', 'save_error']: 
+            caller_frame = inspect.stack()[2] # user asset 사용자 API 호출 시엔 원본 asset 위치 알아내도록 2 depth 뒤로
         caller_func = caller_frame.function
+        caller_file = os.path.basename(caller_frame.filename)
+        caller_line = caller_frame.lineno
         # 원본 함수 호출
         logger_method, msg = func(*args, **kwargs)
         logger_method(f'{caller_file}({caller_line})|{caller_func}()] {msg}')
@@ -101,7 +103,6 @@ class Logger:
     
     @log_decorator
     def asset_error(self, msg):
-        # stdout 
         time_utc = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S,%f')[:-3]
         if not isinstance(msg, str):
             msg = "Failed to run asset_error(). Only support << str >> type for the argument."
