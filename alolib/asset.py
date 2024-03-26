@@ -818,7 +818,7 @@ class Asset:
 
                 
     def _asset_start_info(self):
-        msg = "".join(["\033[36m", # dark cyan
+        msg = "".join(["\033[1m", # bold
             f"\n\n=========================================================== ASSET START ===========================================================\n",
             f"- time (UTC)        : {datetime.now(timezone('UTC')).strftime('%Y-%m-%d %H:%M:%S')}\n",
             f"- current step      : {self.asset_envs['step']}\n",
@@ -834,7 +834,7 @@ class Asset:
 
 
     def _asset_finish_info(self): 
-        msg = "".join(["\033[36m", # dark cyan
+        msg = "".join(["\033[1m", # bold
             f"\n\n=========================================================== ASSET FINISH ===========================================================\n",
             f"- time (UTC)        : {datetime.now(timezone('UTC')).strftime('%Y-%m-%d %H:%M:%S')}\n",
             f"- current step      : {self.asset_envs['step']}\n",
