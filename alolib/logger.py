@@ -41,11 +41,29 @@ def log_decorator(func):
             raise
     return wrapper
 
+def custom_log_decorator(func):
+    ''' for custom log with level as integer
+    '''
+    def wrapper(*args, **kwargs):
+        caller_frame = inspect.stack()[1]
+        caller_file = os.path.basename(caller_frame.filename)
+        caller_line = caller_frame.lineno
+        caller_func = caller_frame.function
+        # 원본 함수 호출
+        logger_method, msg, level = func(*args, **kwargs)
+        logger_method(msg = f'{caller_file}({caller_line})|{caller_func}()] {msg}', level = level)
+        if logger_method.__name__ == "error":
+            raise
+    return wrapper
+
 class Logger: 
     def __init__(self, envs):
         try:
+            MSG_LOG_LEVEL = 5
+            logging.addLevelName(MSG_LOG_LEVEL, 'MSG')
             self.asset_envs = envs
-            self.service = 'ASSET'
+            self.init_file_name = os.path.basename(__file__)
+            self.service = 'ALO' if self.init_file_name == 'asset.py' else 'ASSET' 
             self.project_home = self.asset_envs['project_home']
             self.pipeline = self.asset_envs['pipeline']
             self.step = self.asset_envs['step']
@@ -68,22 +86,32 @@ class Logger:
                 "console": {
                     "class": "logging.StreamHandler",
                     "formatter": "asset_console",
-                    "level": "INFO",
+                    "level": "MSG", # 최소 LEVEL 
                 },
                 "file": {
                     "class": "logging.FileHandler",
                     "filename": self.log_file_path, 
                     "formatter": "asset_file",
-                    "level": "INFO",
+                    "level": "MSG",
                 },
             },
-            "root": {"handlers": ["console", "file"], "level": "INFO"},
-            "loggers": {"ERROR": {"level": "ERROR"}, "WARNING": {"level": "WARNING"}, "INFO": {"level": "INFO"}},
+            "root": {"handlers": ["console", "file"], "level": "MSG"},
+            "loggers": {"ERROR": {"level": "ERROR"}, "WARNING": {"level": "WARNING"}, "INFO": {"level": "INFO"}, "MSG": {"level": MSG_LOG_LEVEL}}
         }
         
     #--------------------------------------------------------------------------------------------------------------------------
     #    ALOlib asset & UserAsset Logging
     #--------------------------------------------------------------------------------------------------------------------------
+    @custom_log_decorator
+    def asset_message(self, msg):
+        '''custom logging: level MSG_LOG_LEVEL(5)
+        used for ALO process logging 
+        ''' 
+        logging.config.dictConfig(self.asset_logging_config)
+        message_logger = logging.getLogger("MSG") 
+        level = message_logger.level
+        return message_logger.log, msg, level
+    
     @log_decorator
     def asset_info(self, msg): 
         # UserAsset API에서도 쓰므로 str type check 필요  
@@ -111,12 +139,12 @@ class Logger:
             error_logger.error(f'{formatted_msg}') 
             raise
         formatted_msg = "".join([
-            f"\n\n============================= ASSET ERROR =============================\n",
+            f"\n=========================================================== ASSET ERROR ===========================================================\n",
             f"TIME(UTC)   : {time_utc}\n",
             f"PIPELINE    : {self.pipeline}\n",
             f"STEP        : {self.step}\n",
             f"ERROR(msg)  : {msg}\n",
-            f"=======================================================================\n\n"])
+            f"=======================================================================================================================================\n\n"])
         # log file save 
         logging.config.dictConfig(self.asset_logging_config) # file handler only logging config 
         error_logger = logging.getLogger("ERROR") 
