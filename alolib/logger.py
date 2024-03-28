@@ -144,7 +144,7 @@ class Logger:
             f"PIPELINE    : {self.pipeline}\n",
             f"STEP        : {self.step}\n",
             f"ERROR(msg)  : {msg}\n",
-            f"=======================================================================================================================================\n\n"])
+            f"=======================================================================================================================================\n"])
         # log file save 
         logging.config.dictConfig(self.asset_logging_config) # file handler only logging config 
         error_logger = logging.getLogger("ERROR") 

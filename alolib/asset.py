@@ -814,7 +814,7 @@ class Asset:
 
                 
     def _asset_start_info(self):
-        msg = "".join(["\033[1m", # bold
+        msg = "".join(["\033[96m", #cyan
             f"\n=========================================================== ASSET START ===========================================================\n",
             f"- time (UTC)        : {datetime.now(timezone('UTC')).strftime('%Y-%m-%d %H:%M:%S')}\n",
             f"- current step      : {self.asset_envs['step']}\n",
@@ -824,19 +824,19 @@ class Asset:
             f"- load config. keys : {self.asset_config.keys()}\n", 
             f"- load data keys    : {self.asset_data.keys()}\n",
             f"- load args.        : {pformat(self.asset_args, width=200, indent=4)}\n",
-            f"====================================================================================================================================\n\n",
+            f"====================================================================================================================================\n",
             "\033[0m"])
         self.logger.asset_message(msg)
 
 
     def _asset_finish_info(self): 
-        msg = "".join(["\033[1m", # bold
+        msg = "".join(["\033[96m", #cyan
             f"\n=========================================================== ASSET FINISH ===========================================================\n",
             f"- time (UTC)        : {datetime.now(timezone('UTC')).strftime('%Y-%m-%d %H:%M:%S')}\n",
             f"- current step      : {self.asset_envs['step']}\n",
             f"- save config. keys : {self.asset_config.keys()}\n",
             f"- save data keys    : {self.asset_data.keys()}\n",
-            f"====================================================================================================================================\n\n",
+            f"====================================================================================================================================\n",
             "\033[0m"])
         self.logger.asset_message(msg)
         
