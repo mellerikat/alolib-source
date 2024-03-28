@@ -59,7 +59,8 @@ class Asset:
         self.log_file_path = self.project_home + self.artifact_dir + "log/pipeline.log"
         self.asset_envs['log_file_path'] = self.log_file_path
         # init logger 
-        self.logger = Logger(self.asset_envs)
+        self.logger = Logger(self.asset_envs, 'ALO')
+        self.user_asset_logger = Logger(self.asset_envs, 'USER')
         try:
             # envs related info.
             self.alo_version = self.asset_envs['alo_version']
@@ -88,15 +89,15 @@ class Asset:
     #                                                         UserAsset API
     #--------------------------------------------------------------------------------------------------------------------------
     def save_info(self, msg):
-        self.logger.asset_info(msg)
+        self.user_asset_logger.asset_info(msg)
         
         
     def save_warning(self, msg):
-        self.logger.asset_warning(msg)
+        self.user_asset_logger.asset_warning(msg)
         
         
     def save_error(self, msg):
-        self.logger.asset_error(msg)
+        self.user_asset_logger.asset_error(msg)
 
 
     def get_input_path(self): 

@@ -57,20 +57,19 @@ def custom_log_decorator(func):
     return wrapper
 
 class Logger: 
-    def __init__(self, envs):
+    def __init__(self, envs, service):
         try:
             MSG_LOG_LEVEL = 5
             logging.addLevelName(MSG_LOG_LEVEL, 'MSG')
             self.asset_envs = envs
-            self.init_file_name = os.path.basename(__file__)
-            self.service = 'ALO' if self.init_file_name == 'asset.py' else 'ASSET' 
+            self.init_file_name = inspect.getframeinfo(inspect.currentframe().f_back)
             self.project_home = self.asset_envs['project_home']
             self.pipeline = self.asset_envs['pipeline']
             self.step = self.asset_envs['step']
             self.log_file_path = self.asset_envs['log_file_path']
         except Exception as e: 
             raise ValueError('[LOGGER][ERROR] Logger class requires properly set argument << envs >> \n' + e, color='red') 
-        
+        self.service = service
         self.asset_logging_config = { 
             "version": 1,
             "formatters": {
