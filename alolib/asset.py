@@ -7,7 +7,7 @@ import json
 import os
 import pickle
 from pytz import timezone
-from inspect import getframeinfo, stack
+import inspect
 import shutil
 import yaml
 from pprint import pformat
@@ -59,7 +59,8 @@ class Asset:
         self.log_file_path = self.project_home + self.artifact_dir + "log/pipeline.log"
         self.asset_envs['log_file_path'] = self.log_file_path
         # init logger 
-        self.logger = Logger(self.asset_envs)
+        self.logger = Logger(self.asset_envs, 'ALO')
+        self.user_asset_logger = Logger(self.asset_envs, 'USER')
         try:
             # envs related info.
             self.alo_version = self.asset_envs['alo_version']
@@ -82,25 +83,21 @@ class Asset:
             # config 
             self.asset_config = asset_structure.config
         except Exception as e:
-            self.asset.save_error(str(e))
+            self.logger.asset_error(str(e))
     
     #--------------------------------------------------------------------------------------------------------------------------
     #                                                         UserAsset API
     #--------------------------------------------------------------------------------------------------------------------------
     def save_info(self, msg):
-        self.logger.asset_info(msg)
+        self.user_asset_logger.asset_info(msg)
         
         
     def save_warning(self, msg):
-        self.logger.asset_warning(msg)
+        self.user_asset_logger.asset_warning(msg)
         
         
     def save_error(self, msg):
-        # caller: error 발생 위치 파악용 
-        # 참고: https://stackoverflow.com/questions/24438976/debugging-get-filename-and-line-number-from-which-a-function-is-called
-        caller = getframeinfo(stack()[1][0])
-        msg_loc = f"{caller.filename}:{caller.lineno}"
-        self.logger.asset_error(msg, msg_loc)
+        self.user_asset_logger.asset_error(msg)
 
 
     def get_input_path(self): 
@@ -225,7 +222,7 @@ class Asset:
                 dir_path = self.asset_envs['artifacts']['.asset_interface'] + self.asset_envs['pipeline'] + "/"
                 if not os.path.exists(dir_path):
                     os.makedirs(dir_path)
-                    self.logger.asset_info(f"<< {dir_path} >> directory created for << save_config >>")
+                    self.logger.asset_message(f"<< {dir_path} >> directory created for << save_config >>")
                 config_file = dir_path + self.asset_envs['step'] + "_config.pkl"
                 # save config file 
                 save_file(config, config_file)
@@ -313,7 +310,7 @@ class Asset:
                 dir_path = self.asset_envs['artifacts']['.asset_interface'] + self.asset_envs['pipeline'] + "/"
                 if not os.path.exists(dir_path):
                     os.makedirs(dir_path)
-                    self.logger.asset_info(f"<< {dir_path} >> directory created for << save_data >>")
+                    self.logger.asset_message(f"<< {dir_path} >> directory created for << save_data >>")
                 data_file = dir_path + self.asset_envs['step'] + "_data.pkl"
                 # save file 
                 save_file(data, data_file)
@@ -498,7 +495,7 @@ class Asset:
         try:      
             with open(file_path, 'w') as file:
                 yaml.dump(summary_data, file, default_flow_style=False)
-            self.logger.asset_info(f"Successfully saved inference summary yaml. \n >> {file_path}") 
+            self.logger.asset_message(f"Successfully saved inference summary yaml. \n >> {file_path}") 
             self.logger.asset_info(f"Save summary : \n {summary_data}\n")
         except: 
             self.logger.asset_error(f"Failed to save summary yaml file \n @ << {file_path} >>")
@@ -561,7 +558,7 @@ class Asset:
                 self.logger.asset_error(f"You must generate train model first. There is no model in the train model path : \n {model_path}")    
         # trian 땐 없으면 폴더 생성 
         os.makedirs(model_path, exist_ok=True) # exist_ok =True : 이미 존재하면 그대로 둠 
-        self.logger.asset_info(f"Successfully got model path for saving or loading your AI model: \n {model_path}")
+        self.logger.asset_message(f"Successfully got model path for saving or loading your AI model: \n {model_path}")
         
         return model_path
 
@@ -598,7 +595,7 @@ class Asset:
         elif current_pipe_mode == 'inference_pipeline': 
             output_path = self.asset_envs["artifacts"]["inference_artifacts"] + f"output/"
             os.makedirs(output_path, exist_ok=True)
-        self.logger.asset_info(f"Successfully got << output path >> for saving your data into csv or jpg file: \n {output_path}")
+        self.logger.asset_message(f"Successfully got << output path >> for saving your data into csv or jpg file: \n {output_path}")
         
         return output_path
 
@@ -632,7 +629,7 @@ class Asset:
         elif current_pipe_mode == 'inference_pipeline': 
             extra_output_path = self.asset_envs["artifacts"]["inference_artifacts"] + f"extra_output/{current_step_name}/"
             os.makedirs(extra_output_path, exist_ok=True)
-        self.logger.asset_info(f"Successfully got << extra output path >> for saving your output data: \n {extra_output_path} ")
+        self.logger.asset_message(f"Successfully got << extra output path >> for saving your output data: \n {extra_output_path} ")
         
         return extra_output_path
     
@@ -661,7 +658,7 @@ class Asset:
         # create report path 
         report_path = self.asset_envs["artifacts"]["train_artifacts"] + "report/"
         os.makedirs(report_path, exist_ok=True) # exist_ok =True : 이미 존재하면 그대로 둠 
-        self.logger.asset_info(f"Successfully got << report path >> for saving your << report.html >> file: \n {report_path}")
+        self.logger.asset_message(f"Successfully got << report path >> for saving your << report.html >> file: \n {report_path}")
         
         return report_path
     
@@ -818,8 +815,8 @@ class Asset:
 
                 
     def _asset_start_info(self):
-        msg = "".join(["\033[36m", # dark cyan
-            f"\n\n=========================================================== ASSET START ===========================================================\n",
+        msg = "".join(["\033[96m", #cyan
+            f"\n=========================================================== ASSET START ===========================================================\n",
             f"- time (UTC)        : {datetime.now(timezone('UTC')).strftime('%Y-%m-%d %H:%M:%S')}\n",
             f"- current step      : {self.asset_envs['step']}\n",
             f"- asset branch.     : {self.asset_branch}\n", 
@@ -828,21 +825,21 @@ class Asset:
             f"- load config. keys : {self.asset_config.keys()}\n", 
             f"- load data keys    : {self.asset_data.keys()}\n",
             f"- load args.        : {pformat(self.asset_args, width=200, indent=4)}\n",
-            f"====================================================================================================================================\n\n",
+            f"====================================================================================================================================\n",
             "\033[0m"])
-        self.logger.asset_info(msg)
+        self.logger.asset_message(msg)
 
 
     def _asset_finish_info(self): 
-        msg = "".join(["\033[36m", # dark cyan
-            f"\n\n=========================================================== ASSET FINISH ===========================================================\n",
+        msg = "".join(["\033[96m", #cyan
+            f"\n=========================================================== ASSET FINISH ===========================================================\n",
             f"- time (UTC)        : {datetime.now(timezone('UTC')).strftime('%Y-%m-%d %H:%M:%S')}\n",
             f"- current step      : {self.asset_envs['step']}\n",
             f"- save config. keys : {self.asset_config.keys()}\n",
             f"- save data keys    : {self.asset_data.keys()}\n",
-            f"====================================================================================================================================\n\n",
+            f"====================================================================================================================================\n",
             "\033[0m"])
-        self.logger.asset_info(msg)
+        self.logger.asset_message(msg)
         
         
     # --------------------------------------------------------------------------------------------------------------------------
