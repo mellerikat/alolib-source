@@ -7,6 +7,7 @@ import json
 import os
 import pickle
 from pytz import timezone
+from time import time 
 import inspect
 import shutil
 import yaml
@@ -88,7 +89,12 @@ class Asset:
     #--------------------------------------------------------------------------------------------------------------------------
     #                                                         UserAsset API
     #--------------------------------------------------------------------------------------------------------------------------
-    def save_info(self, msg):
+    def save_info(self, msg, show=False):
+        '''
+        show=True이면 ALO 실행 마지막 정리 Table에 함께 show
+        '''
+        if show == True:  
+            msg = '[show]' + msg 
         self.user_asset_logger.asset_info(msg)
         
         
@@ -99,11 +105,11 @@ class Asset:
     def save_error(self, msg):
         self.user_asset_logger.asset_error(msg)
 
-
+        
     def get_input_path(self): 
         return self.input_data_home + self.asset_envs['pipeline'].split('_')[0] + '/'
 
-
+    
     def load_args(self):
         """ Description
             -----------
@@ -867,6 +873,7 @@ class Asset:
         """
         def _run(self, *args, **kwargs):
             step = self.asset_envs["step"]
+            self.logger.asset_info(f"[show]{step} asset start") # [show] 라는 key는 ALO run 이후 tact-time table 만들 때 parsing 하기 위한 특수 key 
             prev_data, prev_config = self.asset_data, self.asset_config 
             try:
                 # print asset start info. 
@@ -885,6 +892,7 @@ class Asset:
                     # input step 이외에, 이번 step에서 사용자가 dataframe이라는 문자를 포함한 key를 새로 추가하지 않았는 지 체크 
                     # 기존 데이터 key를 삭제하지 않았는 지 체크 
                     self._check_data_key(prev_data)
+                self.logger.asset_info(f"[show]{step} asset start") 
             except:
                 raise 
                 # self.logger.asset_error(f"Failed to run << {step} >>")
