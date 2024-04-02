@@ -85,16 +85,16 @@ class Logger:
                 "console": {
                     "class": "logging.StreamHandler",
                     "formatter": "asset_console",
-                    "level": "MSG", # 최소 LEVEL 
+                    "level": "DEBUG", # 최소 LEVEL 
                 },
                 "file": {
                     "class": "logging.FileHandler",
                     "filename": self.log_file_path, 
                     "formatter": "asset_file",
-                    "level": "MSG",
+                    "level": "DEBUG",
                 },
             },
-            "root": {"handlers": ["console", "file"], "level": "MSG"},
+            "root": {"handlers": ["console", "file"], "level": "DEBUG"},
             "loggers": {"ERROR": {"level": "ERROR"}, "WARNING": {"level": "WARNING"}, "INFO": {"level": "INFO"}, \
                 "MSG": {"level": MSG_LOG_LEVEL}, "DEBUG": {"level": "DEBUG"}}
         }
