@@ -85,7 +85,7 @@ class Logger:
                 "console": {
                     "class": "logging.StreamHandler",
                     "formatter": "asset_console",
-                    "level": "DEBUG", # 최소 LEVEL 
+                    "level": "MSG", # 최소 LEVEL 
                 },
                 "file": {
                     "class": "logging.FileHandler",
