@@ -5,6 +5,7 @@ from datetime import datetime
 import inspect
 import colorama
 from colorama import Fore, Style
+from copy import deepcopy
 colorama.init()
 
 class ColoredFormatter(logging.Formatter):
@@ -59,7 +60,7 @@ def custom_log_decorator(func):
 class Logger: 
     def __init__(self, envs, service):
         try:
-            MSG_LOG_LEVEL = 5
+            MSG_LOG_LEVEL = 11
             logging.addLevelName(MSG_LOG_LEVEL, 'MSG')
             self.asset_envs = envs
             self.init_file_name = inspect.getframeinfo(inspect.currentframe().f_back)
@@ -94,8 +95,8 @@ class Logger:
                     "level": "MSG",
                 },
             },
-            "root": {"handlers": ["console", "file"], "level": "MSG"},
-            "loggers": {"ERROR": {"level": "ERROR"}, "WARNING": {"level": "WARNING"}, "INFO": {"level": "INFO"}, "MSG": {"level": MSG_LOG_LEVEL}}
+            "loggers": {"ERROR": {"level": "ERROR"}, "WARNING": {"level": "WARNING"}, "INFO": {"level": "INFO"}, "MSG": {"level": MSG_LOG_LEVEL}},
+            "root": {"handlers": ["console", "file"], "level": "MSG"}
         }
         
     #--------------------------------------------------------------------------------------------------------------------------
@@ -103,23 +104,32 @@ class Logger:
     #--------------------------------------------------------------------------------------------------------------------------
     @custom_log_decorator
     def asset_message(self, msg):
-        '''custom logging: level MSG_LOG_LEVEL(5)
+        '''custom logging: level MSG_LOG_LEVEL(11)
         used for ALO process logging 
         ''' 
+        if not isinstance(msg, str):
+            self.asset_error("Failed to run asset_message(). Only support << str >> type for the argument.")
         logging.config.dictConfig(self.asset_logging_config)
         message_logger = logging.getLogger("MSG") 
         level = message_logger.level
         return message_logger.log, msg, level
     
+    
     @log_decorator
-    def asset_info(self, msg): 
+    def asset_info(self, msg, show=False): 
         # UserAsset API에서도 쓰므로 str type check 필요  
         if not isinstance(msg, str):
             self.asset_error("Failed to run asset_info(). Only support << str >> type for the argument.")
-        logging.config.dictConfig(self.asset_logging_config) # file handler only logging config 
+        if show==True: 
+            asset_logging_config = deepcopy(self.asset_logging_config)
+            asset_logging_config["formatters"]["asset_file"]["format"] = self.asset_logging_config["formatters"]["asset_file"]["format"].replace("[", "[SHOW|")
+            logging.config.dictConfig(asset_logging_config) # file handler only logging config 
+        else: 
+            logging.config.dictConfig(self.asset_logging_config) # file handler only logging config 
         info_logger = logging.getLogger("INFO") 
         return info_logger.info, msg 
 
+    
     @log_decorator
     def asset_warning(self, msg):
         if not isinstance(msg, str):
