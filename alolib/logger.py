@@ -121,8 +121,10 @@ class Logger:
             self.asset_error("Failed to run asset_info(). Only support << str >> type for the argument.")
         if show==True: 
             asset_logging_config = self.asset_logging_config.copy() 
-            asset_logging_config["formatters"]["asset_file"]["format"] = "SHOW|" + self.asset_logging_config["formatters"]["asset_file"]["format"]
-        logging.config.dictConfig(asset_logging_config) # file handler only logging config 
+            asset_logging_config["formatters"]["asset_file"]["format"] = self.asset_logging_config["formatters"]["asset_file"]["format"].replace("[", "[SHOW|")
+            logging.config.dictConfig(asset_logging_config) # file handler only logging config 
+        else: 
+            logging.config.dictConfig(self.asset_logging_config) # file handler only logging config 
         info_logger = logging.getLogger("INFO") 
         return info_logger.info, msg 
 
