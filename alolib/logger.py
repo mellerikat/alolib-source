@@ -62,7 +62,7 @@ class Logger:
             MSG_LOG_LEVEL = 11
             SHOW_LOG_LEVEL = 12
             logging.addLevelName(MSG_LOG_LEVEL, 'MSG')
-            logging.addLevelName(MSG_LOG_LEVEL, 'SHOW')
+            logging.addLevelName(SHOW_LOG_LEVEL, 'SHOW')
             self.asset_envs = envs
             self.init_file_name = inspect.getframeinfo(inspect.currentframe().f_back)
             self.project_home = self.asset_envs['project_home']
@@ -115,12 +115,12 @@ class Logger:
         return message_logger.log, msg, level
     
     @custom_log_decorator
-    def asset_debug(self, msg): 
+    def asset_show(self, msg): 
         '''debug level (10)은 
         pipeline run 마지막 부에 table화 하여 print
         '''
         if not isinstance(msg, str):
-            self.asset_error("Failed to run asset_debug(). Only support << str >> type for the argument.")
+            self.asset_error("Failed to run asset_show(). Only support << str >> type for the argument.")
         logging.config.dictConfig(self.asset_logging_config) # file handler only logging config 
         show_logger = logging.getLogger("SHOW") 
         level = show_logger.level
