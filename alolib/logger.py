@@ -60,7 +60,7 @@ def custom_log_decorator(func):
 class Logger: 
     def __init__(self, envs, service):
         try:
-            MSG_LOG_LEVEL = 9
+            MSG_LOG_LEVEL = 11
             logging.addLevelName(MSG_LOG_LEVEL, 'MSG')
             self.asset_envs = envs
             self.init_file_name = inspect.getframeinfo(inspect.currentframe().f_back)
@@ -92,11 +92,11 @@ class Logger:
                     "class": "logging.FileHandler",
                     "filename": self.log_file_path, 
                     "formatter": "asset_file",
-                    "level": "MSG",
+                    "level": "DEBUG",
                 },
             },
             "loggers": {"ERROR": {"level": "ERROR"}, "WARNING": {"level": "WARNING"}, "INFO": {"level": "INFO"}, "MSG": {"level": MSG_LOG_LEVEL}},
-            "root": {"handlers": ["console", "file"], "level": "MSG"}
+            "root": {"handlers": ["console", "file"], "level": "DEBUG"}
         }
         
     #--------------------------------------------------------------------------------------------------------------------------
