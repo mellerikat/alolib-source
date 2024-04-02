@@ -96,7 +96,6 @@ class Asset:
         assert show in [True, False]
         if show == True:  
             self.user_asset_logger.asset_info(msg, show=True)
-
         else:
             self.user_asset_logger.asset_info(msg)
         

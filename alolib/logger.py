@@ -92,11 +92,11 @@ class Logger:
                     "class": "logging.FileHandler",
                     "filename": self.log_file_path, 
                     "formatter": "asset_file",
-                    "level": "DEBUG",
+                    "level": "MSG",
                 },
             },
             "loggers": {"ERROR": {"level": "ERROR"}, "WARNING": {"level": "WARNING"}, "INFO": {"level": "INFO"}, "MSG": {"level": MSG_LOG_LEVEL}},
-            "root": {"handlers": ["console", "file"], "level": "DEBUG"}
+            "root": {"handlers": ["console", "file"], "level": "MSG"}
         }
         
     #--------------------------------------------------------------------------------------------------------------------------
@@ -104,7 +104,7 @@ class Logger:
     #--------------------------------------------------------------------------------------------------------------------------
     @custom_log_decorator
     def asset_message(self, msg):
-        '''custom logging: level MSG_LOG_LEVEL(9)
+        '''custom logging: level MSG_LOG_LEVEL(11)
         used for ALO process logging 
         ''' 
         if not isinstance(msg, str):
