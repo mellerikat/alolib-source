@@ -59,10 +59,8 @@ def custom_log_decorator(func):
 class Logger: 
     def __init__(self, envs, service):
         try:
-            MSG_LOG_LEVEL = 12
-            SHOW_LOG_LEVEL = 11
+            MSG_LOG_LEVEL = 9
             logging.addLevelName(MSG_LOG_LEVEL, 'MSG')
-            logging.addLevelName(SHOW_LOG_LEVEL, 'SHOW')
             self.asset_envs = envs
             self.init_file_name = inspect.getframeinfo(inspect.currentframe().f_back)
             self.project_home = self.asset_envs['project_home']
@@ -93,12 +91,11 @@ class Logger:
                     "class": "logging.FileHandler",
                     "filename": self.log_file_path, 
                     "formatter": "asset_file",
-                    "level": "SHOW",
+                    "level": "MSG",
                 },
             },
-            "loggers": {"ERROR": {"level": "ERROR"}, "WARNING": {"level": "WARNING"}, "INFO": {"level": "INFO"}, \
-                "SHOW": {"level": SHOW_LOG_LEVEL}, "MSG": {"level": MSG_LOG_LEVEL}},
-            "root": {"handlers": ["console", "file"], "level": "SHOW"}
+            "loggers": {"ERROR": {"level": "ERROR"}, "WARNING": {"level": "WARNING"}, "INFO": {"level": "INFO"}, "MSG": {"level": MSG_LOG_LEVEL}},
+            "root": {"handlers": ["console", "file"], "level": "MSG"}
         }
         
     #--------------------------------------------------------------------------------------------------------------------------
@@ -106,32 +103,26 @@ class Logger:
     #--------------------------------------------------------------------------------------------------------------------------
     @custom_log_decorator
     def asset_message(self, msg):
-        '''custom logging: level MSG_LOG_LEVEL(11)
+        '''custom logging: level MSG_LOG_LEVEL(9)
         used for ALO process logging 
         ''' 
+        if not isinstance(msg, str):
+            self.asset_error("Failed to run asset_message(). Only support << str >> type for the argument.")
         logging.config.dictConfig(self.asset_logging_config)
         message_logger = logging.getLogger("MSG") 
         level = message_logger.level
         return message_logger.log, msg, level
     
-    @custom_log_decorator
-    def asset_show(self, msg): 
-        '''show level (9)는 file handler만 사용  
-        pipeline run 마지막 부에 table화 하여 print
-        '''
-        if not isinstance(msg, str):
-            self.asset_error("Failed to run asset_show(). Only support << str >> type for the argument.")
-        logging.config.dictConfig(self.asset_logging_config) # file handler only logging config 
-        show_logger = logging.getLogger("SHOW") 
-        level = show_logger.level
-        return show_logger.log, msg, level
     
     @log_decorator
-    def asset_info(self, msg): 
+    def asset_info(self, msg, show=False): 
         # UserAsset API에서도 쓰므로 str type check 필요  
         if not isinstance(msg, str):
             self.asset_error("Failed to run asset_info(). Only support << str >> type for the argument.")
-        logging.config.dictConfig(self.asset_logging_config) # file handler only logging config 
+        if show==True: 
+            asset_logging_config = self.asset_logging_config.copy() 
+            asset_logging_config["formatters"]["asset_file"]["format"] = "SHOW|" + self.asset_logging_config["formatters"]["asset_file"]["format"]
+        logging.config.dictConfig(asset_logging_config) # file handler only logging config 
         info_logger = logging.getLogger("INFO") 
         return info_logger.info, msg 
 

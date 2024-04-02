@@ -93,11 +93,10 @@ class Asset:
         '''
         show=True이면 ALO 실행 마지막 정리 Table에 함께 show
         '''
+        assert show in [True, False]
         if show == True:  
-            try: 
-                self.user_asset_logger.asset_show(msg)
-            except Exception as e:
-                raise ValueError(str(e))
+            self.user_asset_logger.asset_info(msg, show=True)
+
         else:
             self.user_asset_logger.asset_info(msg)
         
@@ -877,7 +876,7 @@ class Asset:
         """
         def _run(self, *args, **kwargs):
             step = self.asset_envs["step"]
-            self.logger.asset_show(f"{step} asset start") # [show] 라는 key는 ALO run 이후 tact-time table 만들 때 parsing 하기 위한 특수 key 
+            self.logger.asset_info(f"{step} asset start", show=True) # [show] 라는 key는 ALO run 이후 tact-time table 만들 때 parsing 하기 위한 특수 key 
             prev_data, prev_config = self.asset_data, self.asset_config 
             try:
                 # print asset start info. 
@@ -896,7 +895,7 @@ class Asset:
                     # input step 이외에, 이번 step에서 사용자가 dataframe이라는 문자를 포함한 key를 새로 추가하지 않았는 지 체크 
                     # 기존 데이터 key를 삭제하지 않았는 지 체크 
                     self._check_data_key(prev_data)
-                self.logger.asset_show(f"{step} asset finish") 
+                self.logger.asset_info(f"{step} asset finish", show=True) 
             except:
                 raise 
                 # self.logger.asset_error(f"Failed to run << {step} >>")
