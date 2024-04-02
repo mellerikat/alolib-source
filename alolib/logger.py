@@ -116,7 +116,7 @@ class Logger:
     
     @custom_log_decorator
     def asset_show(self, msg): 
-        '''debug level (10)은 
+        '''show level (12)은 
         pipeline run 마지막 부에 table화 하여 print
         '''
         if not isinstance(msg, str):
