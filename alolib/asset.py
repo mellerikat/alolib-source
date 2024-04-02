@@ -94,7 +94,10 @@ class Asset:
         show=True이면 ALO 실행 마지막 정리 Table에 함께 show
         '''
         if show == True:  
-            self.user_asset_logger.asset_show(msg)
+            try: 
+                self.user_asset_logger.asset_show(msg)
+            except Exception as e:
+                raise ValueError(str(e))
         else:
             self.user_asset_logger.asset_info(msg)
         

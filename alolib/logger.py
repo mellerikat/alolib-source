@@ -98,7 +98,7 @@ class Logger:
             },
             "root": {"handlers": ["console", "file"], "level": "DEBUG"},
             "loggers": {"ERROR": {"level": "ERROR"}, "WARNING": {"level": "WARNING"}, "INFO": {"level": "INFO"}, \
-                "MSG": {"level": MSG_LOG_LEVEL}, "SHOW": {"level": SHOW_LOG_LEVEL}}
+                "MSG": {"level": MSG_LOG_LEVEL}, "SHOW": {"handlers": ["file"], "propagate": False, "level": SHOW_LOG_LEVEL}}
         }
         
     #--------------------------------------------------------------------------------------------------------------------------
