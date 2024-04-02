@@ -60,7 +60,7 @@ class Logger:
     def __init__(self, envs, service):
         try:
             MSG_LOG_LEVEL = 11
-            SHOW_LOG_LEVEL = 12
+            SHOW_LOG_LEVEL = 9
             logging.addLevelName(MSG_LOG_LEVEL, 'MSG')
             logging.addLevelName(SHOW_LOG_LEVEL, 'SHOW')
             self.asset_envs = envs
@@ -116,7 +116,7 @@ class Logger:
     
     @custom_log_decorator
     def asset_show(self, msg): 
-        '''show level (12)은 
+        '''show level (9)는 file handler만 사용  
         pipeline run 마지막 부에 table화 하여 print
         '''
         if not isinstance(msg, str):
