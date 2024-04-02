@@ -5,6 +5,7 @@ from datetime import datetime
 import inspect
 import colorama
 from colorama import Fore, Style
+from copy import deepcopy
 colorama.init()
 
 class ColoredFormatter(logging.Formatter):
@@ -120,7 +121,7 @@ class Logger:
         if not isinstance(msg, str):
             self.asset_error("Failed to run asset_info(). Only support << str >> type for the argument.")
         if show==True: 
-            asset_logging_config = self.asset_logging_config.copy() 
+            asset_logging_config = deepcopy(self.asset_logging_config)
             asset_logging_config["formatters"]["asset_file"]["format"] = self.asset_logging_config["formatters"]["asset_file"]["format"].replace("[", "[SHOW|")
             logging.config.dictConfig(asset_logging_config) # file handler only logging config 
         else: 
