@@ -1,18 +1,16 @@
 # -*- coding: utf-8 -*-
 import alolib 
 from alolib.logger import Logger 
+from alolib.utils import load_file, save_file, _convert_variable_type, _extract_partial_data
 import configparser 
 from datetime import datetime
-import json 
 import os
-import pickle
 from pytz import timezone
-from time import time 
-import inspect
-import shutil
+import psutil
 import yaml
 from pprint import pformat
-
+from memory_profiler import profile
+from functools import wraps
 #--------------------------------------------------------------------------------------------------------------------------
 #                                                       GLOBAL VARIABLE
 #--------------------------------------------------------------------------------------------------------------------------
@@ -22,38 +20,18 @@ CSV_FORMATS = {"*.csv"}
 IMAGE_FORMATS = {"*.jpg", "*.jpeg", "*.png"}
 # allowed read_custom_config format 
 CUSTOM_CONFIG_FORMATS = {".ini", ".yaml"}
-
 #--------------------------------------------------------------------------------------------------------------------------
 #                                                           CLASS
 #--------------------------------------------------------------------------------------------------------------------------
 class Asset:
     def __init__(self, asset_structure):
         self.asset = self
-        self.artifacts_structure = {
-            'input': {}, 
-            'train_artifacts': {
-                'score': {},
-                'output': {},
-                'extra_output': {},
-                'log': {},
-                'report': {},
-                'models': {}
-            },
-            'inference_artifacts': {
-                'score': {},
-                'output': {},
-                'extra_output':{},
-                'log': {},
-            },
-            '.asset_interface': {},
-            'history': {}
-        }
+        # alolib version (@ __init__.py)
         self.alolib_version = alolib.__version__ 
-        # 1. set envs, args, data, config .. 
+        ## set envs, args, data, config .. 
         # envs
         self.asset_envs = asset_structure.envs
         # set path and logger 
-        # 현재는 PROJECT PATH 보다 한 층 위 folder에서 실행 중 
         self.project_home = self.asset_envs['project_home']
         # log file path 
         self.artifact_dir = 'train_artifacts/' if self.asset_envs['pipeline'] == 'train_pipeline' else 'inference_artifacts/'
@@ -67,7 +45,8 @@ class Asset:
             self.alo_version = self.asset_envs['alo_version']
             self.asset_branch = self.asset_envs['asset_branch']
             self.solution_metadata_version = self.asset_envs['solution_metadata_version']
-            self.save_artifacts_path = self.asset_envs['save_train_artifacts_path'] if self.asset_envs['pipeline'] == 'train_pipeline' else self.asset_envs['save_inference_artifacts_path']
+            self.save_artifacts_path = self.asset_envs['save_train_artifacts_path'] if self.asset_envs['pipeline'] == 'train_pipeline' \
+                                        else self.asset_envs['save_inference_artifacts_path']
             # alo master runs start time 
             self.proc_start_time = self.asset_envs['proc_start_time'] 
             # 사용자 API를 허용 횟수에 맞게 호출 했는 지 count 
@@ -153,6 +132,7 @@ class Asset:
                 # 이전 스탭에서 저장했던 pkl을 가져옴 
                 file_path = self.asset_envs['artifacts']['.asset_interface'] + self.asset_envs['pipeline'] + "/" + self.asset_envs['prev_step'] + "_config.pkl"
                 config = load_file(file_path)
+                self.logger.asset_message("Loaded : {}".format(file_path))
                 self.asset_envs['load_config'] += 1
                 return config
             except Exception as e:
@@ -234,6 +214,7 @@ class Asset:
                 config_file = dir_path + self.asset_envs['step'] + "_config.pkl"
                 # save config file 
                 save_file(config, config_file)
+                self.logger.asset_message("Saved : {config_file}")
                 self.asset_config = config 
                 self.asset_envs['save_config'] += 1
             except Exception as e:
@@ -266,7 +247,7 @@ class Asset:
             if not isinstance(partial_load, str):
                 self.logger.asset_error(f"The type of << partial_load >> must be string.")
         # partial extract from asset data
-        data = self._extract_partial_data(self.asset_data, partial_load) if len(partial_load) > 0 else self.asset_data
+        data = _extract_partial_data(self.asset_data, partial_load) if len(partial_load) > 0 else self.asset_data
         if len(data) == 0: 
             self.logger.asset_error(f"Failed to partially load data. No key exists containing << {partial_load} >> in loaded data.") 
         # return or save asset data 
@@ -282,8 +263,9 @@ class Asset:
                 # 이전 스탭에서 저장했던 pkl을 가져옴 
                 file_path = self.asset_envs['artifacts']['.asset_interface'] + self.asset_envs['pipeline'] + "/" + self.asset_envs['prev_step'] + "_data.pkl"
                 data = load_file(file_path)
+                self.logger.asset_message("Loaded : {}".format(file_path))
                 # partial extract from asset data
-                data = self._extract_partial_data(data, partial_load) if len(partial_load) > 0 else data
+                data = _extract_partial_data(data, partial_load) if len(partial_load) > 0 else data
                 self.asset_envs['load_data'] += 1
                 return data
             except Exception as e:
@@ -322,6 +304,7 @@ class Asset:
                 data_file = dir_path + self.asset_envs['step'] + "_data.pkl"
                 # save file 
                 save_file(data, data_file)
+                self.logger.asset_message("Saved : {data_file}")
                 # 클래스 내부 변수화 
                 self.asset_data = data
                 self.asset_envs['save_data'] += 1
@@ -445,27 +428,6 @@ class Asset:
             probability = make_addup_1(probability)
         else: 
             probability = {}
-        # FIXME 현재 tcr 처럼 save summary 부터 하고 output file 저장할 수도 있으므로 output 파일 생성 체크는 추후에 다른 곳에서 하거나 에러나게 해야할 듯. *****
-        '''
-        #FIXME 일단 summary yaml 수정 후 save summary 다시할 땐 꼭 output.csv, output.jpg를 다시 해당 step에서 만든 상태일 필요 없으므로 output path 체크는 모든 step 걸쳐 하나만 있음되도록 수정함 
-        # FIXME inference_artifacts/output/[현재 step >> 대부분 inference일 것] 내에 output 파일이 없으면 에러         
-        output_file_path = self.artifact_dir + 'output/'
-        # inference_artifacts/output 내의 파일의 확장자가 지원하지 않는 타입이면 에러 
-        # FIXME 일단 summary yaml 수정 후 save summary 다시할 땐 꼭 output.csv, output.jpg를 다시 해당 step에서 만든 상태일 필요 없으므로 output path 체크는 모든 step 걸쳐 하나만 있음되도록 수정함 
-        output_file_cnt = 0
-        for (path, dir, files) in os.walk(output_file_path):
-            for output_filename in files:
-                extension = os.path.splitext(output_filename)[-1]
-                # 확장자 대문자로 입력했으면 에러 
-                if extension.isupper() == True: 
-                    self.logger.asset_error(f"Please save the inference output file extension in lowercase letters. \n You entered: {path}/{dir}/{output_filename}")
-                # 확장자가 지원하지 않는 타입이면 에러 
-                if '*' + extension not in CSV_FORMATS.union(IMAGE_FORMATS): 
-                    self.logger.asset_error(f"Unsupported type of extension:  {path}/{dir}/{output_filename} \n >> Available extensions: {CSV_FORMATS.union(IMAGE_FORMATS)} \n (ex. output.csv, output.jpg)")
-                output_file_cnt += 1
-        if output_file_cnt == 0:
-            self.logger.asset_error("Failed to save summary. Please generate inference output files first. \n (ex. output.csv, output.jpg)")
-        '''
         # file_path 생성
         file_path = ""     
         # external save artifacts path 
@@ -673,35 +635,7 @@ class Asset:
     
     #--------------------------------------------------------------------------------------------------------------------------
     #                                                         USER API Internal Function
-    #--------------------------------------------------------------------------------------------------------------------------
-
-    def _extract_partial_data(self, _asset_data, _partial_load):             
-        """ Description
-            -----------
-                - load_data 시 사용자에게 반환되는 data dict의 key 중 _partial_load를 담고 있는 것만 추려서 data dict를 반환합니다. 
-                
-            Parameters
-            -----------
-                - _asset_data (dict)    :  data dict
-                - _partial_load (str)   : {HOME}/input/{pipline}/ 하위에 존재하는 경로 
-                
-            Return
-            -----------
-                - _asset_data           : 부분적으로 추려진 asset data 
-                
-            Example
-            -----------
-                - asset_data = self._extract_partial_data(_asset_data, _partial_load)
-        """
-        # 부분적으로 추릴 key를 list화 
-        partial_key_list = [] 
-        for k in _asset_data.keys(): 
-            if _partial_load in k:  
-                partial_key_list.append(k)
-        # partial k,v extract from asset_data
-        return dict(filter(lambda item: item[0] in partial_key_list, _asset_data.items()))
-        
-        
+    #--------------------------------------------------------------------------------------------------------------------------        
     def _check_config_key(self, prev_config):
         """ Description
             -----------
@@ -787,30 +721,9 @@ class Asset:
         if chk_type == list:
             pass
         else:
-            arg_value = self._convert_variable_type(arg_value, chng_type)
+            arg_value = _convert_variable_type(arg_value, chng_type)
 
         return arg_value
-
-
-    def _convert_variable_type(self, variable, target_type):
-            if not isinstance(target_type, str) or target_type.lower() not in ["str", "int", "float", "list", "bool"]:
-                raise ValueError("Invalid target_type. Allowed values are 'str', 'int', 'float', and 'list'.")
-
-            if target_type.lower() == "str" and not isinstance(variable, str):
-                return str(variable)
-            elif target_type.lower() == "int" and not isinstance(variable, int):
-                return int(variable)
-            elif target_type.lower() == "float" and not isinstance(variable, float):
-                return float(variable)
-            elif target_type.lower() == "list" and not isinstance(variable, list):
-                return [variable]
-            elif target_type.lower() == "bool" and not isinstance(variable, bool):
-                if variable == "false" or variable == "False":
-                    return False
-                else:
-                    return True
-            else:
-                return variable
 
                 
     def _asset_start_info(self):
@@ -840,13 +753,25 @@ class Asset:
             "\033[0m"])
         self.logger.asset_message(msg)
         
-        
     # --------------------------------------------------------------------------------------------------------------------------
     #    userasset run function decorator 
     # --------------------------------------------------------------------------------------------------------------------------
+    def profile_cpu(self, func):
+        @wraps(func)
+        def wrapper(self, *args, **kwargs):
+            # CPU 사용량 측정 시작
+            step = self.asset_envs["step"]
+            pid = os.getpid()
+            ppid = psutil.Process(pid)
+            cpu_usage_start = ppid.cpu_percent(interval=None)
+            result = func(self, *args, **kwargs)  # 함수 실행
+            # CPU 사용량 측정 종료
+            cpu_usage_end = ppid.cpu_percent(interval=None)
+            msg = f"----------    {step} asset - CPU usage: {cpu_usage_end - cpu_usage_start} %"
+            self.logger.asset_info(msg, show=True)
+            return result
+        return wrapper
     
-    # TODO : check whether data & config are updated 필요할지? 
-    # FIXME : 만약 config, data에 대해서 dict 타입으로 비교할 때 data dict 내에 dataframe 있으면 ValueError: Can only compare identically-labeled DataFrame objects 에러 발생 가능성 존재 
     def decorator_run(func):
         """ Description
             -----------
@@ -864,7 +789,16 @@ class Asset:
             -----------
                 - @decorator_run
         """
-        def _run(self, *args, **kwargs):
+        _func = func 
+        def _run(self, *args, **kwargs):  
+            # resource check partial decorating 
+            if self.asset_envs["check_resource"] == 'none':
+                func = _func
+            elif self.asset_envs["check_resource"] == 'memory':                   
+                # memory profiler (on 시키면 pipeline run time 증가)
+                func = profile(precision=2)(_func)
+            elif self.asset_envs["check_resource"] == 'cpu':                   
+                func = self.profile_cpu(_func)          
             step = self.asset_envs["step"]
             self.logger.asset_info(f"{step} asset start", show=True) # [show] 라는 key는 ALO run 이후 tact-time table 만들 때 parsing 하기 위한 특수 key 
             prev_data, prev_config = self.asset_data, self.asset_config 
@@ -890,143 +824,6 @@ class Asset:
                 # self.logger.asset_error(f"Failed to run << {step} >>")
             # print asset finish info.
             self._asset_finish_info()
-            
             return self.asset_data, self.asset_config  
-        
+
         return _run
-    
-
-# --------------------------------------------------------------------------------------------------------------------------
-#    COMMON FUNCTION
-# --------------------------------------------------------------------------------------------------------------------------
-
-# FIXME load_file 함수 print, error 함수 변경필요 
-def load_file(_data_file, _print=True):
-    """ Description
-        -----------
-            - 파일을 로하하여 데이터로 가져온다.
-        Parameters
-        -----------
-            - data_file (str) : 로드할 데이터의 파일이름 (경로 포함)
-                                (확장자 지원 : csv, h5, tfrecord, pkl, json, params, log)
-            - option
-                - _print (bool) : 데이터 저장여부 출력
-        Return
-        -----------
-            - data (csv) : dataframe
-                    (pkl, json, params, log) : dictionary
-        Example
-        -----------
-            - data = load_file(data_file)
-    """
-
-    _data = None
-    if _data_file != None:
-        try:
-            if _data_file.lower().endswith('.pkl'):
-                with open(_data_file, 'rb') as f:
-                    _data = pickle.load(f)
-            elif _data_file.lower().endswith('.json') or \
-                    _data_file.lower().endswith('.params') or \
-                    _data_file.lower().endswith('.log'):
-                with open(_data_file, 'r') as f:
-                    _data = json.load(f)
-            else:
-                raise TypeError('No Support file format (support : pkl, json, params, log)')
-                
-            if _print == True:
-                print('Loaded : {}'.format(_data_file))
-            else:
-                pass
-        except FileNotFoundError: 
-            raise ValueError('File Not Found : {}'.format(_data_file))
-        except AttributeError:
-            # ex. tfrecord를 제작할 때 사용한 pandas 버전과 다른 경우 발생
-            raise ValueError('Attribute Error')
-        except:
-            raise ValueError('File Data Error : {}'.format(_data_file))
-    else:
-        raise ValueError('Failed to load data. Data file path is None.')
-
-    return _data
-
-
-# FIXME save_file 함수 print, error 함수 변경필요 
-def save_file(_data, _data_file, _print=True):
-    """ Description
-        -----------
-            - 데이터를 파일로 저장한다.
-        Parameters
-        -----------
-            - data : 파일로 저장할 데이터 (dict) : dataframe 등 key 포함 
-
-            - data_file (str) : 저장할 데이터의 파일이름 (경로 포함)
-                                (확장자 지원 : csv, pkl, json, params, log)
-            - option
-                - _print (bool) : 데이터 저장여부 출력
-        Example
-        -----------
-            - save_file(data, data_file)
-    """
-
-    if _data_file != None and not (isinstance(_data, str) and _data == 'none') and len(_data) > 0:
-        try:
-            check_path(_data_file)
-
-            if _data_file.lower().endswith('.pkl'):
-                with open(_data_file, "wb") as f:
-                    pickle.dump(_data, f)
-            elif _data_file.lower().endswith('.json') or \
-                    _data_file.lower().endswith('.params') or \
-                    _data_file.lower().endswith('.log'):
-                with open(_data_file, "w") as f:
-                    # ensure_ascii=False : 한글 지원
-                    json.dump(_data, f, indent=4, ensure_ascii=False)
-            else:
-                raise TypeError('No Support file format (support : pkl, json, params, log)')
-            
-            if _print == True:
-                _msg = f'Saved : {_data_file}'
-                print(_msg)
-            else:
-                pass
-        except TypeError as e:
-            raise TypeError(str(e))
-        
-        except:
-            raise ValueError('Failed to save : {}'.format(_data_file))
-
-    else:
-        pass
-
-
-def check_path(_filename, remake=False):
-    """ Description
-        -----------
-            Check the directory of file
-
-        Parameters
-        -----------
-            _filename (str) : the file name with full directory 
-            options
-                remake (bool) : Create the path if not path
-
-        Return
-        -----------
-            bool
-
-        Example
-        -----------
-            check_path('/home/user/work/filename.csv', remake=True)
-    """
- 
-    # 접근 폴더가 없다면
-    if not os.path.exists(os.path.dirname(_filename)):
-        os.makedirs(os.path.dirname(_filename))
-        return False
-    else:
-        # 폴더가 있다면 삭제하고, 다시 만든다.
-        if remake == True:
-            shutil.rmtree(os.path.dirname(_filename))
-            os.makedirs(os.path.dirname(_filename))
-        return True
