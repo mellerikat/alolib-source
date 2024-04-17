@@ -747,15 +747,6 @@ class Asset:
         for k in prev_data.keys(): 
             if k not in self.asset_data.keys(): 
                 self.logger.asset_error(f"The key << {k} >>  of data dict is deleted in this step. Do not delete key.")  
-        # asset 개발자가 dataframe이라는 이름 들어가는 key 추가 금지 
-        prev_keys = [i for i in prev_data.keys() if 'dataframe' in i]
-        cur_keys =  [i for i in self.asset_data.keys() if 'dataframe' in i]
-        if len(prev_keys) < len(cur_keys): 
-            self.logger.asset_error(f"Do not add keys containing the word << dataframe >> into the output data dict to be saved.:\n You added: {set(cur_keys) - set(prev_keys)}")
-        if len(prev_keys) > len(cur_keys): 
-            self.logger.asset_error(f"Do not remove keys contaning the word << dataframe >>. \n You removed: {set(prev_keys) - set(cur_keys)}")
-        if prev_keys != cur_keys: 
-            self.logger.asset_error(f"Do not modify keys contaning the word << dataframe >>. \n - Previous step: {prev_keys} \n - Current step: {cur_keys}") 
 
 
     def check_args(self, arg_key, is_required=False, default="", chng_type="str" ):
@@ -888,12 +879,11 @@ class Asset:
                                             or << self.asset.save_conifg() >> API in the << {step} >> step. \n Both of calls are mandatory.")
                 if (not isinstance(self.asset_data, dict)) or (not isinstance(self.asset_config, dict)):
                     self.logger.asset_error(f"You should make dict for argument of << self.asset.save_data()>> or << self.asset.save_config() >> \n @ << {step} >> step.")  
-                if step != 'input':
-                    # 기존 config key를 삭제하지 않았는 지 체크 
-                    self._check_config_key(prev_config)
-                    # input step 이외에, 이번 step에서 사용자가 dataframe이라는 문자를 포함한 key를 새로 추가하지 않았는 지 체크 
-                    # 기존 데이터 key를 삭제하지 않았는 지 체크 
-                    self._check_data_key(prev_data)
+                # 기존 config key를 삭제하지 않았는 지 체크 
+                self._check_config_key(prev_config)
+                # input step 이외에, 이번 step에서 사용자가 dataframe이라는 문자를 포함한 key를 새로 추가하지 않았는 지 체크 
+                # 기존 데이터 key를 삭제하지 않았는 지 체크 
+                self._check_data_key(prev_data)
                 self.logger.asset_info(f"{step} asset finish", show=True) 
             except:
                 raise 
