@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 import alolib 
 from alolib.logger import Logger 
-from alolib.utils import load_file, save_file, _convert_variable_type, _extract_partial_data
 import configparser 
 from datetime import datetime
 import os
@@ -11,6 +10,7 @@ import yaml
 from pprint import pformat
 from memory_profiler import profile
 from functools import wraps
+from alolib.utils import load_file, save_file, _convert_variable_type, _extract_partial_data, display_resource
 #--------------------------------------------------------------------------------------------------------------------------
 #                                                       GLOBAL VARIABLE
 #--------------------------------------------------------------------------------------------------------------------------
@@ -767,24 +767,23 @@ class Asset:
             result = func(self, *args, **kwargs)  # 함수 실행
             # CPU 사용량 측정 종료
             cpu_usage_end = ppid.cpu_percent(interval=None)
-            msg = f"----------    {step} asset - CPU usage: {cpu_usage_end - cpu_usage_start} %"
-            self.logger.asset_info(msg, show=True)
+            msg = f"- STEP: {step} ~ CPU USAGE (%)        : {cpu_usage_end - cpu_usage_start} %"
+            msg = display_resource(step, msg=msg)
+            self.logger.asset_message(msg)
             return result
         return wrapper
     
+
     def decorator_run(func):
         """ Description
             -----------
                 - user asset의 run 함수의 로직을 제어하기 위한 decorator용 함수 
-                
             Parameters
             -----------
                 - func   : user run 함수 
-                
             Return
             -----------
                 -
-                
             Example
             -----------
                 - @decorator_run
@@ -792,27 +791,29 @@ class Asset:
         _func = func 
         def _run(self, *args, **kwargs):  
             # resource check partial decorating 
-            if self.asset_envs["check_resource"] == 'none':
+            if self.asset_envs["check_resource"] == False:
                 func = _func
-            elif self.asset_envs["check_resource"] == 'memory':                   
-                # memory profiler (on 시키면 pipeline run time 증가)
+            elif self.asset_envs["check_resource"] == True:  
+                # dual decorator                 
+                # partial decorator 1 - memory profiler (on 시키면 pipeline run time 증가)
                 func = profile(precision=2)(_func)
-            elif self.asset_envs["check_resource"] == 'cpu':                   
-                func = self.profile_cpu(_func)          
+                # partial decorator 2 - cpu profiler              
+                func = self.profile_cpu(func)  
+            # get current step     
             step = self.asset_envs["step"]
             self.logger.asset_info(f"{step} asset start", show=True) # [show] 라는 key는 ALO run 이후 tact-time table 만들 때 parsing 하기 위한 특수 key 
+            # get prev data, config      
             prev_data, prev_config = self.asset_data, self.asset_config 
             try:
                 # print asset start info. 
                 self._asset_start_info() 
-                # run user asset 
+                # run user asset ***  
                 func(self, *args, **kwargs)
                 # save_data, save_config 호출은 step 당 1회 제한 (안그러면 덮어씌워짐)
                 if (self.asset_envs['save_data'] != 1) or (self.asset_envs['save_config'] != 1):
-                        self.logger.asset_error(f"You did not call (or more than once) the \n << self.asset.save_data() >> \
-                                            or << self.asset.save_conifg() >> API in the << {step} >> step. \n Both of calls are mandatory.")
+                        self.logger.asset_error(f"[@ {step} asset] You did not call (or call too many times) the << self.asset.save_data() >> or << self.asset.save_conifg() >> API")
                 if (not isinstance(self.asset_data, dict)) or (not isinstance(self.asset_config, dict)):
-                    self.logger.asset_error(f"You should make dict for argument of << self.asset.save_data()>> or << self.asset.save_config() >> \n @ << {step} >> step.")  
+                    self.logger.asset_error(f"[@ {step} asset] You must input dictionary type argument for << self.asset.save_data()>> or << self.asset.save_config() >>")  
                 # 기존 config key를 삭제하지 않았는 지 체크 
                 self._check_config_key(prev_config)
                 # input step 이외에, 이번 step에서 사용자가 dataframe이라는 문자를 포함한 key를 새로 추가하지 않았는 지 체크 
@@ -821,7 +822,6 @@ class Asset:
                 self.logger.asset_info(f"{step} asset finish", show=True) 
             except:
                 raise 
-                # self.logger.asset_error(f"Failed to run << {step} >>")
             # print asset finish info.
             self._asset_finish_info()
             return self.asset_data, self.asset_config  

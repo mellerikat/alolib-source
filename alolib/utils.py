@@ -165,3 +165,16 @@ def _extract_partial_data(_asset_data, _partial_load):
             partial_key_list.append(k)
     # partial k,v extract from asset_data
     return dict(filter(lambda item: item[0] in partial_key_list, _asset_data.items()))
+
+def display_resource(step, msg):
+    '''
+    - msg: printed message (cpu usage)
+    ''' 
+    assert type(msg) == str
+    # asset.py - decorator_run 에 mem, cpu decorator 붙어있는 점 활용
+    msg = "".join(["\033[93m", #bright yellow                                     
+    f"\n----------------------------------------------------------- Finished displaying < MEMORY > usage ( asset: {step} )\n",
+    f"\n {msg} \n",
+    f"----------------------------------------------------------- Finished displaying < CPU > usage ( asset: {step} ) \n",
+    "\033[0m"])
+    return msg
