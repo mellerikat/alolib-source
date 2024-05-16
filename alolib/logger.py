@@ -10,14 +10,21 @@ colorama.init()
 
 class ColoredFormatter(logging.Formatter):
     COLORS = {
-        #logging.DEBUG: Fore.GRAY,
         logging.INFO: Fore.GREEN,
         logging.WARNING: Fore.BLUE,
         logging.ERROR: Fore.MAGENTA,
-        #logging.CRITICAL: Fore.RED # + Style.BRIGHT
     }
 
     def format(self, record):
+        """ logger color formatting
+
+        Args:           
+            record   (str): logging message
+            
+        Returns:
+            formatted message
+
+        """
         log_color = self.COLORS.get(record.levelno, Fore.WHITE)
         message = super().format(record)
         return f"{log_color}{message}{Style.RESET_ALL}"
@@ -26,16 +33,24 @@ class ColoredFormatter(logging.Formatter):
 #    Logger Class : (asset.py 및 사용자 asset에서 사용)
 #--------------------------------------------------------------------------------------------------------------------------
 def log_decorator(func):
+    """ log function decorator for finding original caller 
+
+    Args:           
+        func   (function): original function tobe decorated 
+        
+    Returns:
+        wrapper (function): wrapped function 
+    
+    """
     def wrapper(*args, **kwargs):
         caller_frame = inspect.stack()[1]
-        # FIXME class name 찾는법 복잡해서 일단 제거 
-        #caller_name = caller_frame.
         if caller_frame.function in ['save_info', 'save_warning', 'save_error']: 
-            caller_frame = inspect.stack()[2] # user asset 사용자 API 호출 시엔 원본 asset 위치 알아내도록 2 depth 뒤로
+            ## When calling the user asset API, determine the original asset location by going two depths back.
+            caller_frame = inspect.stack()[2] 
         caller_func = caller_frame.function
         caller_file = os.path.basename(caller_frame.filename)
         caller_line = caller_frame.lineno
-        # 원본 함수 호출
+        ## Call the original function 
         logger_method, msg = func(*args, **kwargs)
         logger_method(f'{caller_file}({caller_line})|{caller_func}()] {msg}')
         if logger_method.__name__ == "error":
@@ -43,15 +58,23 @@ def log_decorator(func):
     return wrapper
 
 def custom_log_decorator(func):
-    ''' for custom log with level as integer
-    '''
+    """ custom log function decorator with integer logger level
+
+    Args:           
+        func   (function): original function tobe decorated 
+        
+    Returns:
+        wrapper (function): wrapped function 
+    
+    """
     def wrapper(*args, **kwargs):
         caller_frame = inspect.stack()[1]
         caller_file = os.path.basename(caller_frame.filename)
         caller_line = caller_frame.lineno
         caller_func = caller_frame.function
-        # 원본 함수 호출
+        ## Call the original function
         logger_method, msg, level = func(*args, **kwargs)
+        ## integer logger level 
         logger_method(msg = f'{caller_file}({caller_line})|{caller_func}()] {msg}', level = level)
         if logger_method.__name__ == "error":
             raise
@@ -59,6 +82,15 @@ def custom_log_decorator(func):
 
 class Logger: 
     def __init__(self, envs, service):
+        """ initialize logger config
+
+        Args:           
+            envs    (dict): environmental info. from ALO master
+            service (str): service name (e.g. ALO, USER)
+            
+        Returns: -
+        
+        """
         try:
             MSG_LOG_LEVEL = 11
             logging.addLevelName(MSG_LOG_LEVEL, 'MSG')
@@ -86,7 +118,7 @@ class Logger:
                 "console": {
                     "class": "logging.StreamHandler",
                     "formatter": "asset_console",
-                    "level": "MSG", # 최소 LEVEL 
+                    "level": "MSG", 
                 },
                 "file": {
                     "class": "logging.FileHandler",
@@ -95,18 +127,24 @@ class Logger:
                     "level": "MSG",
                 },
             },
+            ## minimum level base: MSG
             "loggers": {"ERROR": {"level": "ERROR"}, "WARNING": {"level": "WARNING"}, "INFO": {"level": "INFO"}, "MSG": {"level": MSG_LOG_LEVEL}},
             "root": {"handlers": ["console", "file"], "level": "MSG"}
         }
         
-    #--------------------------------------------------------------------------------------------------------------------------
-    #    ALOlib asset & UserAsset Logging
-    #--------------------------------------------------------------------------------------------------------------------------
     @custom_log_decorator
     def asset_message(self, msg):
-        '''custom logging: level MSG_LOG_LEVEL(11)
-        used for ALO process logging 
-        ''' 
+        """ custom logging API used for ALO process logging  - level MSG_LOG_LEVEL(11)
+
+        Args:           
+            msg (str): logging message
+            
+        Returns: 
+            logger.log
+            message (str)
+            logger.level
+        
+        """
         if not isinstance(msg, str):
             self.asset_error("Failed to run asset_message(). Only support << str >> type for the argument.")
         logging.config.dictConfig(self.asset_logging_config)
@@ -116,34 +154,63 @@ class Logger:
     
     
     @log_decorator
-    def asset_info(self, msg, show=False): 
-        # UserAsset API에서도 쓰므로 str type check 필요  
+    def asset_info(self, msg, show=False):
+        """ info logging API used for user asset logging
+
+        Args:           
+            msg (str): logging message
+            
+        Returns: 
+            logger.info
+            message (str)
+        
+        """ 
         if not isinstance(msg, str):
             self.asset_error("Failed to run asset_info(). Only support << str >> type for the argument.")
         if show==True: 
             asset_logging_config = deepcopy(self.asset_logging_config)
             asset_logging_config["formatters"]["asset_file"]["format"] = self.asset_logging_config["formatters"]["asset_file"]["format"].replace("[", "[SHOW|")
-            logging.config.dictConfig(asset_logging_config) # file handler only logging config 
+            logging.config.dictConfig(asset_logging_config) 
         else: 
-            logging.config.dictConfig(self.asset_logging_config) # file handler only logging config 
+            logging.config.dictConfig(self.asset_logging_config) 
         info_logger = logging.getLogger("INFO") 
         return info_logger.info, msg 
 
     
     @log_decorator
     def asset_warning(self, msg):
+        """ warning logging API used for user asset logging
+
+        Args:           
+            msg (str): logging message
+            
+        Returns: 
+            logger.warning
+            message (str)
+        
+        """
         if not isinstance(msg, str):
             self.asset_error("Failed to run asset_warning(). Only support << str >> type for the argument.")
-        logging.config.dictConfig(self.asset_logging_config) # file handler only logging config 
+        logging.config.dictConfig(self.asset_logging_config) 
         warning_logger = logging.getLogger("WARNING") 
         return warning_logger.warning, msg 
     
     @log_decorator
     def asset_error(self, msg):
+        """ error logging API used for user asset logging
+
+        Args:           
+            msg (str): logging message
+            
+        Returns: 
+            logger.error
+            message (str)
+        
+        """
         time_utc = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S,%f')[:-3]
         if not isinstance(msg, str):
             msg = "Failed to run asset_error(). Only support << str >> type for the argument."
-            logging.config.dictConfig(self.asset_logging_config) # file handler only logging config 
+            logging.config.dictConfig(self.asset_logging_config) 
             error_logger = logging.getLogger("ERROR") 
             error_logger.error(f'{formatted_msg}') 
             raise
@@ -154,7 +221,6 @@ class Logger:
             f"STEP        : {self.step}\n",
             f"ERROR(msg)  : {msg}\n",
             f"=======================================================================================================================================\n"])
-        # log file save 
-        logging.config.dictConfig(self.asset_logging_config) # file handler only logging config 
+        logging.config.dictConfig(self.asset_logging_config) 
         error_logger = logging.getLogger("ERROR") 
         return error_logger.error, formatted_msg
