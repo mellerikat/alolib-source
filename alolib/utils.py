@@ -31,7 +31,6 @@ def load_file(_data_file):
         except FileNotFoundError: 
             raise ValueError('File Not Found : {}'.format(_data_file))
         except AttributeError:
-            # ex. tfrecord를 제작할 때 사용한 pandas 버전과 다른 경우 발생
             raise ValueError('Attribute Error')
         except:
             raise ValueError('File Data Error : {}'.format(_data_file))
