@@ -484,15 +484,16 @@ class Asset:
         ## model path  
         model_path = self.asset_envs["artifacts"][artifacts_name] + f"models/{current_step_name}/"
         ## If there is no step with the same name in the train artifacts during the inference pipeline, it results in an error.
-        if (current_pipe_mode  == "inference_pipeline") and (current_step_name != "inference"):
-            if not os.path.exists(model_path):
-                self.logger.asset_error(f"You must execute train pipeline first. There is no model path : \n {model_path}") 
-        elif (current_pipe_mode  == "inference_pipeline") and (current_step_name == "inference"):
-            model_path = self.asset_envs["artifacts"][artifacts_name] + f"models/train/"
-            if not os.path.exists(model_path): 
-                self.logger.asset_error(f"You must execute train pipeline first. There is no model path : \n {model_path}") 
-            elif (os.path.exists(model_path)) and (len(os.listdir(model_path)) == 0): 
-                self.logger.asset_error(f"You must generate train model first. There is no model in the train model path : \n {model_path}")    
+        if use_inference_path == False: 
+            if (current_pipe_mode  == "inference_pipeline") and (current_step_name != "inference"):
+                if not os.path.exists(model_path):
+                    self.logger.asset_error(f"You must execute train pipeline first. There is no model path : \n {model_path}") 
+            elif (current_pipe_mode  == "inference_pipeline") and (current_step_name == "inference"):
+                model_path = self.asset_envs["artifacts"][artifacts_name] + f"models/train/"
+                if not os.path.exists(model_path): 
+                    self.logger.asset_error(f"You must execute train pipeline first. There is no model path : \n {model_path}") 
+                elif (os.path.exists(model_path)) and (len(os.listdir(model_path)) == 0): 
+                    self.logger.asset_error(f"You must generate train model first. There is no model in the train model path : \n {model_path}")    
         ## create model path 
         os.makedirs(model_path, exist_ok=True) 
         self.logger.asset_message(f"Successfully got model path for saving or loading your AI model: \n {model_path}")

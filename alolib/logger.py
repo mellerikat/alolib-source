@@ -105,6 +105,7 @@ class Logger:
         self.service = service
         self.asset_logging_config = { 
             "version": 1,
+            "disable_existing_loggers": False,
             "formatters": {
                 "asset_console": {
                     "()": ColoredFormatter,
