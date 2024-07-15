@@ -367,10 +367,10 @@ class Asset:
         note_len_limit = 128 
         ## check result length limit 12 
         if not isinstance(result, str) or len(result) > result_len_limit:
-            self.logger.asset_error(f"The length of string argument << result >>  must be within {result_len_limit} ")
+            self.logger.asset_error(f"The length of string argument << result >> must be within {result_len_limit} ")
         ## check score range within 0 ~ 1.0 
-        if not isinstance(score, (int, float)) or not 0 <= score <= 1.0:
-            self.logger.asset_error("The value of float (or int) argument << score >> must be between 0.0 and 1.0 ")
+        if not type(score) in (int, float) or not 0 <= score <= 1.0:
+            self.logger.asset_error(f"The type of << score >> must be python float or int. Also, the value must be between 0.0 and 1.0. Your current score value: {score}")
         ## check note length limit 100  
         if not isinstance(result, str) or len(note) > note_len_limit:
             self.logger.asset_error(f"The length of string argument << note >>  must be within {note_len_limit} ")
@@ -487,11 +487,11 @@ class Asset:
         if use_inference_path == False: 
             if (current_pipe_mode  == "inference_pipeline") and (current_step_name != "inference"):
                 if not os.path.exists(model_path):
-                    self.logger.asset_error(f"You must execute train pipeline first. There is no model path : \n {model_path}") 
+                    self.logger.asset_error(f"You must execute train pipeline first and save model file in the model path. There is no model in the path : \n {model_path}.") 
             elif (current_pipe_mode  == "inference_pipeline") and (current_step_name == "inference"):
                 model_path = self.asset_envs["artifacts"][artifacts_name] + f"models/train/"
                 if not os.path.exists(model_path): 
-                    self.logger.asset_error(f"You must execute train pipeline first. There is no model path : \n {model_path}") 
+                    self.logger.asset_error(f"You must execute train pipeline first and save model file in the model path. There is no model in the path : \n {model_path}.") 
                 elif (os.path.exists(model_path)) and (len(os.listdir(model_path)) == 0): 
                     self.logger.asset_error(f"You must generate train model first. There is no model in the train model path : \n {model_path}")    
         ## create model path 
